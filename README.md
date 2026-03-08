@@ -37,9 +37,9 @@ npx skills add https://github.com/baptiste-pasquier/skills --skill smart-rebase
 
 ## Skills In This Repo
 
-| Skill          | Description                                                                                                                                        | Install                                                                           |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `smart-rebase` | Help the user safely rebase a feature branch onto `main`, `develop`, or another target branch while preserving feature behavior through conflicts. | `npx skills add https://github.com/baptiste-pasquier/skills --skill smart-rebase` |
+| Skill          | Description                                                                                                                                        | Link                                                                     | Install                                                                           |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| `smart-rebase` | Help the user safely rebase a feature branch onto `main`, `develop`, or another target branch while preserving feature behavior through conflicts. | [baptiste-pasquier/skills/smart-rebase](https://skills.sh/baptiste-pasquier/skills/smart-rebase) | `npx skills add https://github.com/baptiste-pasquier/skills --skill smart-rebase` |
 
 ## Explore More Skills
 
