@@ -587,6 +587,9 @@ def walk_docs() -> tuple[list[Path], list[Problem]]:
     files: list[Path] = []
     problems: list[Problem] = []
     for path in sorted(DOCS.rglob("*")):
+        # A hidden path is tooling, not documentation: `.DS_Store`, a cache dir.
+        if any(part.startswith(".") for part in path.relative_to(DOCS).parts):
+            continue
         if path.is_symlink():
             kind = "folder" if path.is_dir() else "file"
             problems.append(
