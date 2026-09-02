@@ -40,23 +40,32 @@ does not retell the story.
 
 `scripts/check_docs.py` runs in pre-commit and CI. These fail:
 
-- **Never narrate a past attempt, failure, or measured symptom in `docs/reference/` or
-  `docs/conventions/`.** Write a `docs/journal/solutions/` entry (template:
-  [`docs/journal/solutions/README.md`](docs/journal/solutions/README.md)) and leave the
-  distilled rule with a link. This applies in **every** session, whether or not an
-  artifact-writing plugin is running.
-  `docs/explanation/` **may** narrate — that is what explanation is for — but a full
-  write-up with symptoms and measurements still belongs in a journal entry, linked.
+- **Never narrate a past attempt, failure, or measured symptom in `docs/reference/`,
+  `docs/conventions/` or `docs/how-to/`.** Write a `docs/journal/solutions/` entry
+  (template: [`docs/journal/solutions/README.md`](docs/journal/solutions/README.md)) and
+  leave the distilled rule with a link. This applies in **every** session, whether or not
+  an artifact-writing plugin is running.
+  `docs/explanation/` **may** narrate — that is what explanation is for — so the gate
+  **warns** there rather than failing. A full write-up with symptoms and measurements still
+  belongs in a journal entry, linked. `docs/journal/` is exempt: narrating what failed is
+  its purpose.
 - **Never add a backlog, TODO or "future work" section under `docs/`** — {{open an issue
-  with the `backlog` label}}. A `TODO` comment in a source file is fine, and a doc may point
-  at one; a *list* of unbuilt work in prose is not.
+  with the `backlog` label}}. The gate fails on a section *headed* `TODO`, `Backlog`,
+  `Future work`, `Roadmap` or `Open questions`; a single sentence asserting unbuilt work
+  gets past it, so link the issue instead of writing the sentence. A `TODO` comment in a
+  source file is fine, and a doc may point at one; a *list* of unbuilt work in prose is not.
 - **Every maintained doc carries frontmatter** with `title`, `type` (equal to its folder
-  name), `audience`, `status`, `stale_after`, and appears in `docs/README.md`. A passed
-  `stale_after` **warns** rather than fails, so a review date cannot redden an unrelated PR.
+  name), `audience`, `status`, `stale_after`, and appears in `docs/README.md`. A key present
+  but empty counts as missing. A passed `stale_after` **warns** rather than fails, so a
+  review date cannot redden an unrelated PR.
 - **Every `docs/conventions/` file opens with a `Scope:` line** naming the artifact it
-  governs.
-- {{**{{Language}}**, everywhere in `docs/`. Quoted prompt text and user-facing labels stay
-  {{other language}}, inside backticks or a code fence.}}
+  governs. The bolded form `**Scope:` passes too.
+- **Every relative link and every `#fragment` resolves.** Renaming a heading breaks the
+  links into it; the gate names them.
+- **Filenames are kebab-case**, and a `docs/journal/decisions/` entry is
+  `NNNN-with-dashes.md`.
+- {{**{{Language}}**, everywhere in `docs/` including the journal. Quoted prompt text and
+  user-facing labels stay {{other language}}, inside backticks or a code fence.}}
 
 <!-- This list must match the code exactly. An overstated rule makes an agent move prose
      that belonged where it was. -->

@@ -106,8 +106,13 @@ always-loaded instructions file.
 
 ### Install the gate before moving content
 
-With an allowlist so it passes on the old tree, then drop the allowlist at the end. A gate
-added after the restructure never gets added — the energy is spent by then.
+Set `ALLOWLIST` in the gate's CONFIGURATION block to the folders that have not moved yet,
+so it passes on the old tree, then empty it as each folder lands. A gate added after the
+restructure never gets added — the energy is spent by then.
+
+An allowlisted path is not silent: its failures are reported as warnings, so the remaining
+work stays visible in every run. An allowlist that is still there a month later is a
+permanent exemption wearing a migration's clothes.
 
 ### Use `git mv`
 

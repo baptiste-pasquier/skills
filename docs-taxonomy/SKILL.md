@@ -118,8 +118,10 @@ Four questions have no default. Ask them (see `references/decisions.md` for the 
 ### 3. Move, in this order
 
 1. Create the tree and `docs/README.md`. Write `conventions/documentation.md`.
-2. **Install the gate before moving content**, with an allowlist so it passes on the old
-   tree. A gate added afterwards never gets added.
+2. **Install the gate before moving content**, with `ALLOWLIST` set to the folders that
+   have not moved yet, so it passes on the old tree. A gate added afterwards never gets
+   added. An allowlisted path still reports — as a warning — so the remaining work stays
+   visible.
 3. `git mv` the dated records into `journal/`. Use `git mv` — renames preserve history and
    keep the diff reviewable.
 4. Split the drifted docs. **For each, extract every incident narrative into a
@@ -163,16 +165,54 @@ project makes decisions before it has explanations.
 
 ## The gate
 
-`scripts/check_docs.py` in `references/` is a single dependency-light file. Copy it into the
-project, edit the marked constants block, wire it two ways: a pre-commit hook, **and** a
-test, so CI fails on a bad merge even if hooks were skipped.
+`scripts/check_docs.py` is a single file needing only PyYAML. Copy it and its test into the
+project, edit the CONFIGURATION block, wire it two ways: a pre-commit hook **and** a test,
+so CI fails on a bad merge even when hooks were skipped.
+
+```bash
+cp "$SKILL_DIR/scripts/check_docs.py"      scripts/check_docs.py
+cp "$SKILL_DIR/scripts/test_check_docs.py" tests/unit_tests/scripts/test_check_docs.py
+```
+
+The test imports the gate either as `scripts.check_docs` or as a sibling file, so both
+layouts work. Run it once from the project root before wiring anything: 100 tests, no
+project `docs/` needed — every case builds its own tree.
+
+Adapting means **editing a value in the CONFIGURATION block, never the code below it**.
+Every switch has an "off" value the test suite exercises:
+
+| Set this | To get |
+| --- | --- |
+| `SECOND_LANGUAGE_MARKERS = None` | no language rule |
+| `GENERATED_BACKLOG_HEADER = None` | no backlog mirror |
+| `PROSE_CAP_DEFAULT = None` | no size warning |
+| `NARRATION_FAILS = ()` | narration left to review |
+| `SCOPE_FOLDER = None` | no `Scope:` line required |
+| `CATEGORY_KEY = None` | journal entries with no category field |
+| `ALLOWLIST = ("docs/legacy/**",)` | those paths' failures become warnings |
+
+The pre-commit hook, with the four fields that are not guessable:
+
+```yaml
+  - repo: local
+    hooks:
+      - id: check-docs
+        name: docs/ structure (taxonomy, frontmatter, links, prose)
+        entry: python scripts/check_docs.py
+        language: system
+        pass_filenames: false
+        files: ^docs/
+```
+
+`pass_filenames: false` matters: the gate checks the tree as a whole — the index rule needs
+every maintained doc, not the two that happen to be staged.
 
 **What must fail:**
 
 | Check | Why it is the one that matters |
 | --- | --- |
 | `type` frontmatter ≠ its folder | Turns the compass from advice into a gate. The core check. |
-| Incident narration in `reference/`/`conventions/` | Targets the observed failure mode directly. |
+| Incident narration in `reference/`, `conventions/`, `how-to/` | Targets the observed failure mode directly. A warning in `explanation/`, which may narrate. |
 | Missing or invalid frontmatter | |
 | A relative link that does not resolve | Catches renames and phantom files. |
 | A maintained doc missing from the index | The orphan-file gate. |
@@ -250,6 +290,12 @@ be able to follow the format.
 | `references/decisions.md` | The four questions to ask the owner, with trade-offs. |
 | `references/pitfalls.md` | **Read before building the gate.** Mistakes with real cost. |
 | `references/backlog.md` | Backlog options, and the branch-protection trap. |
-| `references/templates/` | `docs-readme.md`, `conventions-documentation.md`, `solutions-readme.md`, `decisions-readme.md`, `agents-section.md` |
-| `scripts/check_docs.py` | The gate. Copy in, edit the constants block. |
-| `scripts/test_check_docs.py` | Its tests, both directions per rule. |
+| `references/templates/README.md` | Index of the templates, and where each one lands. |
+| `references/templates/` | `docs-readme.md`, `conventions-documentation.md`, `solutions-readme.md`, `decisions-readme.md`, `agents-section.md`, `frontmatter.md` |
+| `scripts/check_docs.py` | The gate. Copy in, edit the CONFIGURATION block only. |
+| `scripts/test_check_docs.py` | Its tests: 100 cases, every rule in the failing direction. |
+
+The script here is the canonical copy. Once copied into a project it belongs to that
+project and diverges as its taxonomy does — nothing syncs the two, and nothing should.
+Re-copying is a deliberate act, and the test suite is what tells you whether a newer copy
+still fits.

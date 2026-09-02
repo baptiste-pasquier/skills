@@ -11,9 +11,10 @@ not fit an existing one.
 **Read this store before implementing a fix** in a documented area. It exists so the same
 wall is not hit twice.
 
-**Never** narrate an incident in `explanation/`, `how-to/`, `reference/` or
-`conventions/`. Write it here and leave the distilled rule plus a link — see
-[`../../conventions/documentation.md`](../../conventions/documentation.md).
+**Never** narrate an incident in `how-to/`, `reference/` or `conventions/` — CI fails on
+one there. In `explanation/` it warns: a full write-up with symptoms and measurements still
+belongs here, linked from the rule. Write the entry here and leave the distilled rule plus a
+link — see [`../../conventions/documentation.md`](../../conventions/documentation.md).
 
 ## Frontmatter
 

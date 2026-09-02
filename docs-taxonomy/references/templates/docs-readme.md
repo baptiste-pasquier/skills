@@ -81,8 +81,8 @@ Every maintained doc appears here. A doc missing from this list fails CI.
   An accepted decision is never edited
 - [`solutions/`](journal/solutions/) — what broke, what was tried, what the measurement
   said. Read the relevant category before implementing a fix
-- [`plans/`](journal/plans/) — shipped implementation plans, kept for provenance
-- [`ideation/`](journal/ideation/) — requirements exploration that fed a plan
+- {{[`plans/`](journal/plans/) — shipped implementation plans, kept for provenance}}
+- {{[`ideation/`](journal/ideation/) — requirements exploration that fed a plan}}
 
 Templates: [`solutions/README.md`](journal/solutions/README.md),
 [`decisions/README.md`](journal/decisions/README.md).
@@ -101,20 +101,28 @@ Templates: [`solutions/README.md`](journal/solutions/README.md),
 `scripts/check_docs.py` runs in pre-commit and in CI. It fails on:
 
 1. a file whose `type` does not match its folder, or a file in an unknown folder
-2. missing or invalid frontmatter
-3. a relative link that does not resolve
+2. missing or invalid frontmatter — a key present but empty counts as missing
+3. a relative link, or a `#fragment`, that does not resolve
 4. a maintained doc missing from the index above
 5. {{prose in the wrong language, outside a code fence}}
-6. past-tense incident narration in `reference/` or `conventions/`
+6. past-tense incident narration in `reference/`, `conventions/` or `how-to/`
 7. a banned filler phrase
-8. a filename that is not kebab-case, or an ADR not named `NNNN-with-dashes.md`
-9. a `conventions/` file that does not open with a `Scope:` line
-10. {{`BACKLOG.md` with its generated header removed}}
+8. a section headed `TODO`, `Backlog`, `Future work`, `Roadmap` or `Open questions`
+9. a filename that is not kebab-case, or an ADR not named `NNNN-with-dashes.md`
+10. a `conventions/` file that does not open with a `Scope:` line
+11. a journal entry whose declared category is not the folder it sits in
+12. a loose file at the root of `docs/`, an unexpected file type, or a symlinked folder
+13. {{`BACKLOG.md` with its generated header removed}}
 
-It **warns**, without failing, on two things: a maintained doc past {{150}} prose lines
-(`reference/`: {{250}}), and a `stale_after` date that has passed. Neither fails, because
-neither depends on the change being reviewed — an expiry would otherwise redden every
-unrelated PR on the day it fires.
+It **warns**, without failing, on three things: incident narration in `explanation/`, a
+maintained doc past {{150}} prose lines (`reference/`: {{250}}), and a `stale_after` date
+that has passed. The last two never fail because neither depends on the change being
+reviewed — an expiry would otherwise redden every unrelated PR on the day it fires.
+Narration warns in `explanation/` because that is the one folder allowed to narrate; the
+warning only asks whether the write-up belongs in a journal entry, linked.
+
+`docs/journal/` is exempt from rules 6, 7 and 8. It is append-only: an entry records what
+was measured, in the words used at the time, and cannot be corrected into compliance later.
 
 {{Two rules are enforced outside the checker: a hand edit to `BACKLOG.md` is caught at
 commit time by `scripts/check_backlog_staging.sh`, not in CI where nothing is staged; and

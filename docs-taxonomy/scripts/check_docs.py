@@ -12,28 +12,42 @@ the change under review, and neither of those does.
 --------------------------------------------------------------------------------
 ADAPTING THIS FILE TO A PROJECT
 
-Everything project-specific is in the CONFIGURATION block below. Read it top to
-bottom before wiring the script in; most projects change three things:
+Every project-specific value is in the CONFIGURATION block below, and adapting
+means editing a value there - never editing the code underneath. Each switch has
+an "off" value that the test suite exercises, so turning a rule off cannot break
+the script:
 
-  1. FRENCH_MARKERS / FRENCH_THRESHOLD - delete both, and the `check_language`
-     call, if the project has no language rule. Replace the marker list if the
-     second language is not French.
-  2. PROSE_CAP - the warning thresholds.
-  3. FILLER - the banned openers your own conventions doc names.
+  * SECOND_LANGUAGE_MARKERS = None    - no language rule at all
+  * GENERATED_BACKLOG_HEADER = None   - no generated backlog mirror
+  * PROSE_CAP_DEFAULT = None          - no size warning
+  * NARRATION_FAILS = ()              - never fail on incident narration
+  * SCOPE_FOLDER = None               - no `Scope:` line required
+  * CATEGORY_KEY = None               - journal entries declare no category
+  * ALLOWLIST = ("docs/legacy/**",)   - a path whose failures become warnings
 
-Do NOT add a hard size cap or fail on `stale_after`. See the skill's
-references/pitfalls.md for what that costs.
+Most projects change three things: the language markers, the PROSE_CAP numbers,
+and the FILLER openers their own conventions doc names.
+
+Do NOT add a hard size cap, and do NOT fail on `stale_after`. See the skill's
+references/pitfalls.md for what those cost.
 
 Requires PyYAML. If the project has no Python runtime, port the rules rather
 than adding one - the rule set matters, this implementation does not.
+
+Two lint pragmas are the host project's business, not this file's: the `noqa:
+T201` comments matter only where `flake8-print` is enabled, and `date.today()`
+is deliberate - the expiry is compared against the local day, not a timezone.
+Adjust both to whatever the project's linter is configured to want.
 --------------------------------------------------------------------------------
 """
 
 from __future__ import annotations
 
 import datetime as dt
+import fnmatch
 import re
 import sys
+import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -41,13 +55,19 @@ import yaml
 
 # ============================== CONFIGURATION ==============================
 
+#: Where the repository root sits relative to this file. The default assumes
+#: `scripts/check_docs.py`; change the `.parent` chain if it lives elsewhere.
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DOCS = REPO_ROOT / "docs"
+#: The documentation tree's folder name, relative to the repository root.
+DOCS_DIRNAME = "docs"
+DOCS = REPO_ROOT / DOCS_DIRNAME
 
 #: Maintained folders. `type` in a doc's frontmatter must equal its folder name.
 MAINTAINED = ("explanation", "how-to", "reference", "conventions")
-#: Dated, append-only records. Exempt from the prose and size checks.
+#: Dated, append-only records. Exempt from narration, size and staleness.
 JOURNAL = "journal"
+#: The journal subfolder holding decision records, whose filenames are numbered.
+DECISIONS_SUBFOLDER = "decisions"
 
 #: The name of a folder's own index file, at the root of `docs/` and inside a
 #: journal category.
@@ -55,17 +75,31 @@ INDEX_NAME = "README.md"
 #: Files at the root of `docs/` that are not quadrant docs.
 ROOT_ALLOWED = {INDEX_NAME, "BACKLOG.md"}
 
+#: Extensions this gate knows how to read as a doc. Anything else under `docs/`
+#: is reported rather than ignored, so a `.txt` cannot smuggle prose in.
+DOC_SUFFIXES = (".md",)
+#: Extensions allowed under a maintained folder without being a doc - a
+#: generated spec, a fixture. Checked for filename and links only.
+DATA_SUFFIXES = (".yaml", ".yml", ".json")
+
+#: Frontmatter every maintained doc carries. A key present but empty counts as
+#: missing.
+REQUIRED_KEYS = ("title", "type", "audience", "status", "stale_after")
 VALID_AUDIENCE = {"human", "agent"}
 VALID_STATUS = {"draft", "stable", "deprecated"}
 
+#: Prose-line warning thresholds, per folder. Set PROSE_CAP_DEFAULT to None to
+#: drop the size warning entirely.
 PROSE_CAP = {"reference": 250}
 PROSE_CAP_DEFAULT = 150
 
 #: Past-tense incident narration. Belongs in `journal/solutions/`, never in a
 #: maintained doc - see `docs/conventions/documentation.md`.
 INCIDENT_MARKERS = (
-    r"\bused to (?:be|have|do|fire|return|inject|strip|pass|show|print|ask|call|"
-    r"reorder|crash|hold|live|work|happen|contain|produce|move|wait)\b",
+    (
+        r"\bused to (?:be|have|do|fire|return|inject|strip|pass|show|print|ask|"
+        r"call|reorder|crash|hold|live|work|happen|contain|produce|move|wait)\b"
+    ),
     r"\bpreviously,\b",
     r"\bwas tried\b",
     r"\bwe tried\b",
@@ -73,40 +107,73 @@ INCIDENT_MARKERS = (
     r"\bbefore this fix\b",
     r"\bearlier version\b",
     r"\b\d+ (?:attempts?|tries|runs?) out of \d+\b",
-    r"\b\d+ (?:essais?|tentatives?) sur \d+\b",
     r"\bturned out to be false\b",
+)
+#: Folders where incident narration fails the build. Set to () to disable.
+NARRATION_FAILS = ("reference", "conventions", "how-to")
+#: Folders where it is reported as a warning instead. `explanation/` narrates by
+#: design; the warning only asks whether the write-up belongs in the journal.
+NARRATION_WARNS = ("explanation",)
+
+#: A heading that names its section as a list of unbuilt work. Matched on the
+#: heading text alone, so a rule *about* backlogs ("Never write a backlog") is
+#: not itself a backlog.
+BACKLOG_HEADING = re.compile(
+    r"^#{1,6}[ \t]+(todo|to do|backlog|future work|not yet implemented|roadmap|"
+    r"open questions|wishlist|ideas)[ \t]*:?[ \t]*$",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 #: Filler openers banned by `conventions/documentation.md`.
 FILLER = (
-    r"il est important de noter que",
-    r"on notera que",
-    r"il convient de noter",
     r"it is worth mentioning that",
     r"it should be noted that",
     r"it is important to note that",
     r"as mentioned previously",
+    r"il est important de noter que",
+    r"on notera que",
+    r"il convient de noter",
 )
 
-#: French function words. Several of these on one line means the line is French.
-#: Scored rather than matched singly: words like "la" and "des" occur in English
-#: prose, so one hit proves nothing while four hits are conclusive. Business
-#: vocabulary that keeps its French name in English (dossier, apport, VEFA,
-#: primo-accedant) is deliberately absent.
-FRENCH_MARKERS = re.compile(
+#: Function words of the language the docs must NOT be written in. Several on
+#: one line means the line is in that language. Scored rather than matched
+#: singly: words like "la" and "des" occur in English prose, so one hit proves
+#: nothing while four hits are conclusive. Business vocabulary that keeps its
+#: foreign name in English is deliberately absent.
+#:
+#: Set to None if the project has no language rule.
+SECOND_LANGUAGE_MARKERS = re.compile(
     r"\b(?:le|la|les|une?|des|du|dans|pour|avec|sur|que|qui|donc|mais|est|sont|"
     r"cette|ces|ce|il|elle|nous|vous|leur|tout|toute|alors|ainsi|quand|lorsque|"
     r"parce|puisque|entre|chaque|aucune?|jamais|toujours|pas|ne|se|son|sa|ses|"
-    r"comme|plut\u00f4t|d\u00e9j\u00e0|encore|aussi)\b",
-    re.I,
+    r"comme|plutôt|déjà|encore|aussi)\b",
+    re.IGNORECASE,
 )
-#: How many French markers on one line before it is called French prose.
-FRENCH_THRESHOLD = 4
+#: How many distinct markers on one line before it is called foreign prose.
+LANGUAGE_THRESHOLD = 4
+#: What the report calls that language.
+LANGUAGE_NAME = "French"
 
-KEBAB = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*\.(?:md|yaml)$")
+#: How a `conventions/` file must open. The bolded and the plain form both pass,
+#: so the templates and the gate cannot disagree about the asterisks.
+SCOPE_LINE = re.compile(r"^\**Scope:", re.MULTILINE)
+#: The folder whose files must open with that line. Set to None to disable.
+SCOPE_FOLDER = "conventions"
+
+#: Where a journal entry declares its own category, if its format has such a
+#: field. It must equal the folder the entry sits in. Set to None to disable.
+CATEGORY_KEY = "category"
+
+KEBAB = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*\.[a-z]+$")
 ADR_NAME = re.compile(r"^\d{4}-[a-z0-9]+(?:-[a-z0-9]+)*\.md$")
 #: Set to None if the project has no generated backlog mirror.
 GENERATED_BACKLOG_HEADER = "<!-- GENERATED by scripts/sync_backlog.py"
+
+#: Paths whose failures are downgraded to warnings, as glob patterns relative to
+#: the repository root. This is the migration escape hatch: point it at the
+#: legacy tree, land the gate, then empty it folder by folder. An allowlist that
+#: is never emptied is a permanent exemption - see references/pitfalls.md.
+ALLOWLIST: tuple[str, ...] = ()
 
 # ============================ END CONFIGURATION ============================
 
@@ -121,9 +188,23 @@ class Problem:
 
     def render(self) -> str:
         """Return the one-line report for this problem."""
-        rel = self.path.relative_to(REPO_ROOT)
+        try:
+            rel: Path | str = self.path.relative_to(REPO_ROOT)
+        except ValueError:
+            rel = self.path
         tag = "warn" if self.warning else "FAIL"
         return f"{tag}  {rel}: {self.message}"
+
+
+def is_allowlisted(path: Path) -> bool:
+    """Return whether this path's failures are downgraded to warnings."""
+    if not ALLOWLIST:
+        return False
+    try:
+        rel = path.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        rel = path.as_posix()
+    return any(fnmatch.fnmatch(rel, pattern) for pattern in ALLOWLIST)
 
 
 def split_frontmatter(text: str) -> tuple[dict | None, str]:
@@ -142,27 +223,63 @@ def split_frontmatter(text: str) -> tuple[dict | None, str]:
     return (parsed if isinstance(parsed, dict) else None), body
 
 
+FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,})")
+
+
+def outside_fences(body: str) -> list[tuple[int, str]]:
+    """Return the `(line number, text)` pairs that sit outside a code fence.
+
+    One shared notion of "inside a fence", so every rule agrees. A fence closes
+    only on the same character, repeated at least as many times as it opened
+    with - which is what CommonMark says, and what lets a fenced block contain a
+    shorter fence. An unclosed fence swallows the rest of the file, exactly as a
+    markdown renderer would.
+    """
+    lines: list[tuple[int, str]] = []
+    marker: str | None = None
+    for number, raw in enumerate(body.splitlines(), start=1):
+        if hit := FENCE.match(raw):
+            found = hit.group(1)
+            if marker is None:
+                marker = found
+            elif found[0] == marker[0] and len(found) >= len(marker):
+                marker = None
+            continue
+        if marker is None:
+            lines.append((number, raw))
+    return lines
+
+
 def strip_code(body: str) -> str:
-    """Return the body with fenced code blocks and inline code removed."""
-    without_fences = re.sub(r"^[ \t]*```.*?^[ \t]*```", "", body, flags=re.S | re.M)
-    return re.sub(r"`[^`\n]*`", "", without_fences)
+    """Return the body with fenced blocks and inline code removed."""
+    plain = "\n".join(text for _, text in outside_fences(body))
+    return re.sub(r"`[^`\n]*`", "", plain)
 
 
 def prose_lines(body: str) -> int:
     """Count body lines that are prose - not code, not a table, not a heading."""
     count = 0
-    in_fence = False
-    for line in body.splitlines():
-        if line.lstrip().startswith("```"):
-            in_fence = not in_fence
-            continue
-        if in_fence:
-            continue
+    for _, line in outside_fences(body):
         stripped = line.strip()
         if not stripped or stripped.startswith(("#", "|", ">", "---")):
             continue
         count += 1
     return count
+
+
+def missing(meta: dict, key: str) -> bool:
+    """Return whether a frontmatter key is absent, or present but empty.
+
+    `title:` with nothing after it parses to `None`, and an empty list is no more
+    of a value than a missing key. Counting those as present is how a file with
+    five bare keys passes a schema check.
+    """
+    value = meta.get(key)
+    if value is None:
+        return True
+    if isinstance(value, str | list | dict | tuple | set):
+        return not value
+    return False
 
 
 def check_frontmatter(path: Path, meta: dict | None, folder: str) -> list[Problem]:
@@ -171,10 +288,11 @@ def check_frontmatter(path: Path, meta: dict | None, folder: str) -> list[Proble
         return [Problem(path, "missing or unparseable YAML frontmatter")]
     problems = [
         Problem(path, f"frontmatter missing `{key}`")
-        for key in ("title", "type", "audience", "status", "stale_after")
-        if key not in meta
+        for key in REQUIRED_KEYS
+        if missing(meta, key)
     ]
-    if (declared := meta.get("type")) and declared != folder:
+    declared = meta.get("type")
+    if declared is not None and declared != folder:
         problems.append(
             Problem(path, f"`type: {declared}` does not match its folder `{folder}/`")
         )
@@ -189,9 +307,11 @@ def check_enums(path: Path, meta: dict) -> list[Problem]:
     audience = meta.get("audience")
     if audience is not None:
         values = audience if isinstance(audience, list) else [audience]
-        if bad := set(values) - VALID_AUDIENCE:
+        if bad := {str(value) for value in values} - VALID_AUDIENCE:
             problems.append(Problem(path, f"invalid audience {sorted(bad)}"))
-    if (status := meta.get("status")) and status not in VALID_STATUS:
+    status = meta.get("status")
+    # `status: no` parses to the boolean False, so truthiness is not the test.
+    if status is not None and status not in VALID_STATUS:
         problems.append(Problem(path, f"invalid status `{status}`"))
     return problems
 
@@ -211,99 +331,200 @@ def check_expiry(path: Path, expiry: object) -> list[Problem]:
 
 
 def check_prose(path: Path, body: str, folder: str, offset: int = 0) -> list[Problem]:
-    """Check language, incident narration, filler and size in a maintained doc.
+    """Check language, narration, filler, backlog sections and size.
 
     `offset` is the number of frontmatter lines above `body`, so reported line
     numbers match the file rather than the body.
     """
-    problems = check_language(path, body, offset)
     plain = strip_code(body)
+    return [
+        *check_language(path, body, offset),
+        *check_narration(path, plain, folder),
+        *check_no_backlog_section(path, plain),
+        *check_filler(path, plain),
+        *check_size(path, body, folder),
+    ]
 
-    if folder in ("reference", "conventions"):
-        for marker in INCIDENT_MARKERS:
-            if hit := re.search(marker, plain, re.I):
-                problems.append(
-                    Problem(
-                        path,
-                        f"incident narration {hit.group(0)!r} - move it to "
-                        "journal/solutions/ and leave the rule with a link",
-                    )
+
+def check_narration(path: Path, plain: str, folder: str) -> list[Problem]:
+    """Report incident narration, failing or warning according to the folder."""
+    if folder not in NARRATION_FAILS and folder not in NARRATION_WARNS:
+        return []
+    problems: list[Problem] = []
+    for marker in INCIDENT_MARKERS:
+        if hit := re.search(marker, plain, re.IGNORECASE):
+            problems.append(
+                Problem(
+                    path,
+                    f"incident narration {hit.group(0)!r} - move it to "
+                    f"{JOURNAL}/solutions/ and leave the rule with a link",
+                    warning=folder not in NARRATION_FAILS,
                 )
-    for marker in FILLER:
-        if hit := re.search(marker, plain, re.I):
-            problems.append(Problem(path, f"filler phrase {hit.group(0)!r}"))
-
-    cap = PROSE_CAP.get(folder, PROSE_CAP_DEFAULT)
-    if (count := prose_lines(body)) > cap:
-        problems.append(
-            Problem(
-                path, f"{count} prose lines, over the {cap} guideline", warning=True
             )
-        )
     return problems
 
 
+def check_no_backlog_section(path: Path, plain: str) -> list[Problem]:
+    """Report a section whose heading names it as a list of unbuilt work."""
+    if hit := BACKLOG_HEADING.search(plain):
+        return [
+            Problem(
+                path,
+                f"section {hit.group(1).strip()!r} is a backlog - open a tracker "
+                "issue instead, and link it",
+            )
+        ]
+    return []
+
+
+def check_filler(path: Path, plain: str) -> list[Problem]:
+    """Report a banned filler opener."""
+    return [
+        Problem(path, f"filler phrase {hit.group(0)!r}")
+        for marker in FILLER
+        if (hit := re.search(marker, plain, re.IGNORECASE))
+    ]
+
+
+def check_size(path: Path, body: str, folder: str) -> list[Problem]:
+    """Warn when a doc's prose has grown past its folder's guideline."""
+    cap = PROSE_CAP.get(folder, PROSE_CAP_DEFAULT)
+    if cap is None:
+        return []
+    if (count := prose_lines(body)) > cap:
+        message = f"{count} prose lines, over the {cap} guideline"
+        return [Problem(path, message, warning=True)]
+    return []
+
+
 def check_language(path: Path, body: str, offset: int) -> list[Problem]:
-    """Report the first line outside a code fence that reads as French."""
-    in_fence = False
-    for number, raw in enumerate(body.splitlines(), start=1 + offset):
-        if raw.lstrip().startswith("```"):
-            in_fence = not in_fence
-            continue
-        if in_fence:
-            continue
+    """Report the first line outside a fence written in the wrong language."""
+    if SECOND_LANGUAGE_MARKERS is None:
+        return []
+    for number, raw in outside_fences(body):
         line = re.sub(r"`[^`\n]*`", "", raw)
-        hits = {hit.lower() for hit in FRENCH_MARKERS.findall(line)}
-        if len(hits) >= FRENCH_THRESHOLD:
-            return [Problem(path, f"line {number} is French: {sorted(hits)[:6]}")]
+        hits = {hit.lower() for hit in SECOND_LANGUAGE_MARKERS.findall(line)}
+        if len(hits) >= LANGUAGE_THRESHOLD:
+            message = f"line {number + offset} is {LANGUAGE_NAME}: {sorted(hits)[:6]}"
+            return [Problem(path, message)]
     return []
 
 
 def check_journal_entry(path: Path, rel: Path) -> list[Problem]:
-    """Check an append-only journal entry: its links, and an ADR's filename."""
+    """Check an append-only journal entry.
+
+    A journal entry is exempt from the narration rule - recording what failed is
+    its purpose - and from size and staleness. It is not exempt from resolving
+    its links, naming its file, or declaring the folder it lives in.
+    """
     problems = check_links(path)
-    is_decision = len(rel.parts) >= 2 and rel.parts[1] == "decisions"
+    if not KEBAB.match(path.name) and path.name != INDEX_NAME:
+        problems.append(Problem(path, "filename must be kebab-case"))
+
+    is_decision = len(rel.parts) >= 2 and rel.parts[1] == DECISIONS_SUBFOLDER
     if is_decision and rel.name != INDEX_NAME and not ADR_NAME.match(rel.name):
         problems.append(Problem(path, "ADR name must be `NNNN-with-dashes.md`"))
+
+    text = path.read_text(encoding="utf-8")
+    meta, body = split_frontmatter(text)
+    offset = len(text.splitlines()) - len(body.splitlines())
+    problems.extend(check_language(path, body, offset))
+    problems.extend(check_category(path, meta))
     return problems
 
 
+def check_category(path: Path, meta: dict | None) -> list[Problem]:
+    """Check that an entry's declared category is the folder it sits in."""
+    if CATEGORY_KEY is None or not isinstance(meta, dict):
+        return []
+    declared = meta.get(CATEGORY_KEY)
+    if not declared or not path.parent.is_relative_to(REPO_ROOT):
+        return []
+    folder = path.parent.relative_to(REPO_ROOT).as_posix()
+    if declared != folder:
+        message = f"`{CATEGORY_KEY}: {declared}` is not its folder `{folder}`"
+        return [Problem(path, message)]
+    return []
+
+
 def opens_with_scope(body: str) -> bool:
-    """Return whether the body's first paragraph after the H1 is a `Scope:` line."""
+    """Return whether the body opens with a `Scope:` line, bolded or not."""
     blocks = [block for block in body.split("\n\n") if block.strip()]
-    return any("**Scope:" in block for block in blocks[:2])
+    return any(SCOPE_LINE.search(block) for block in blocks[:2])
+
+
+def anchor(heading: str) -> str:
+    """Return the fragment id a markdown host derives from a heading's text."""
+    text = re.sub(r"[`*~]", "", heading.strip())  # `_` is kept: it is in identifiers
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)  # a link keeps its label
+    text = re.sub(r"[^\w\- ]", "", text, flags=re.UNICODE)
+    return text.strip().lower().replace(" ", "-")
+
+
+def anchors_of(path: Path) -> set[str]:
+    """Return every fragment id a markdown file offers."""
+    body = path.read_text(encoding="utf-8")
+    found = {
+        anchor(hit.group(1))
+        for _, line in outside_fences(body)
+        if (hit := re.match(r"#{1,6}[ \t]+(.*)", line))
+    }
+    # An explicit `<a id="...">` or a `{#custom-id}` suffix counts too.
+    found |= set(re.findall(r"<a\s+(?:id|name)=[\"']([^\"']+)[\"']", body))
+    found |= set(re.findall(r"\{#([\w-]+)\}", body))
+    return found
+
+
+#: A markdown link target. The angle-bracket form may contain spaces, so it
+#: needs its own branch; both forms may carry a title after the target.
+LINK = re.compile(r"\]\(\s*(?:<([^>]*)>|([^)\s]*))(?:\s+[\"'][^\"']*[\"'])?\s*\)")
 
 
 def check_links(path: Path) -> list[Problem]:
-    """Check that every relative markdown link resolves on disk."""
+    """Check that every relative link, and every fragment, resolves on disk.
+
+    Every link shape is checked, not only the `.md` ones: a folder link, a link
+    carrying a title, a percent-encoded space and an uppercase extension are all
+    links that can rot.
+    """
     problems: list[Problem] = []
     text = path.read_text(encoding="utf-8")
-    for target in re.findall(r"\]\(([^)\s#]+\.(?:md|yaml))(?:#[^)]*)?\)", text):
-        if target.startswith(("http://", "https://", "/")):
+    for bracketed, bare in LINK.findall(text):
+        target, _, fragment = (bracketed or bare).partition("#")
+        target = urllib.parse.unquote(target)
+        if target.startswith(("http://", "https://", "mailto:", "//", "/")):
             continue
-        if not (path.parent / target).exists():
+        if not target and not fragment:
+            continue
+        resolved = (path.parent / target) if target else path
+        if not resolved.exists():
             problems.append(Problem(path, f"broken link -> {target}"))
+        elif (
+            fragment
+            and resolved.is_file()
+            and resolved.suffix.lower() == ".md"
+            and fragment not in anchors_of(resolved)
+        ):
+            problems.append(Problem(path, f"broken anchor -> {target}#{fragment}"))
     return problems
 
 
 def check_index(index_text: str, maintained: list[Path]) -> list[Problem]:
-    """Check that every maintained doc is listed in `docs/README.md`."""
+    """Check that every maintained doc is listed in the index."""
     return [
-        Problem(path, "not listed in docs/README.md")
+        Problem(path, f"not listed in {DOCS_DIRNAME}/{INDEX_NAME}")
         for path in maintained
-        if str(path.relative_to(DOCS)) not in index_text
+        # POSIX form, so the check behaves the same way on Windows.
+        if path.relative_to(DOCS).as_posix() not in index_text
     ]
 
 
 def check_backlog(path: Path) -> list[Problem]:
-    """Check that BACKLOG.md still carries its generated header."""
-    if not path.exists():
+    """Check that the backlog mirror still carries its generated header."""
+    if GENERATED_BACKLOG_HEADER is None or not path.exists():
         return []
-    if (
-        not path.read_text(encoding="utf-8")
-        .lstrip()
-        .startswith(GENERATED_BACKLOG_HEADER)
-    ):
+    text = path.read_text(encoding="utf-8").lstrip()
+    if not text.startswith(GENERATED_BACKLOG_HEADER):
         return [
             Problem(path, "missing the generated header - it must not be hand-edited")
         ]
@@ -313,7 +534,7 @@ def check_backlog(path: Path) -> list[Problem]:
 def check_maintained_doc(path: Path, folder: str) -> list[Problem]:
     """Run every check that applies to one maintained markdown doc."""
     problems: list[Problem] = []
-    if not KEBAB.match(path.name):
+    if not KEBAB.match(path.name) and path.name != INDEX_NAME:
         problems.append(Problem(path, "filename must be kebab-case"))
     problems.extend(check_links(path))
 
@@ -323,39 +544,67 @@ def check_maintained_doc(path: Path, folder: str) -> list[Problem]:
     problems.extend(check_frontmatter(path, meta, folder))
     problems.extend(check_prose(path, body, folder, offset))
 
-    if folder == "conventions" and not opens_with_scope(body):
+    if SCOPE_FOLDER and folder == SCOPE_FOLDER and not opens_with_scope(body):
         problems.append(
-            Problem(path, "a conventions/ file must open with a `**Scope:` line")
+            Problem(path, f"a {folder}/ file must open with a `Scope:` line")
         )
     return problems
 
 
 def classify(path: Path, rel: Path) -> tuple[list[Problem], bool]:
     """Route one file to its checks, and say whether it is a maintained doc."""
-    parts = rel.parts
-    if len(parts) == 1:
+    suffix = path.suffix.lower()
+    if len(rel.parts) == 1:
         if rel.name not in ROOT_ALLOWED:
-            return [
-                Problem(path, "loose file at the root of docs/ - it needs a folder")
-            ], False
+            message = f"loose file at the root of {DOCS_DIRNAME}/ - it needs a folder"
+            return [Problem(path, message)], False
         return [], False
 
-    folder = parts[0]
+    folder = rel.parts[0]
     if folder == JOURNAL:
+        if suffix not in DOC_SUFFIXES:
+            return [Problem(path, f"unexpected `{suffix}` file in {JOURNAL}/")], False
         return check_journal_entry(path, rel), False
     if folder not in MAINTAINED:
         return [Problem(path, f"unknown folder `{folder}/`")], False
-    if path.suffix == ".yaml":
-        return check_links(path), False
+    if suffix in DATA_SUFFIXES:
+        problems = check_links(path)
+        if not KEBAB.match(path.name):
+            problems.append(Problem(path, "filename must be kebab-case"))
+        return problems, False
+    if suffix not in DOC_SUFFIXES:
+        return [Problem(path, f"unexpected `{suffix}` file under {folder}/")], False
     return check_maintained_doc(path, folder), True
+
+
+def walk_docs() -> tuple[list[Path], list[Problem]]:
+    """Return every file under `docs/`, and the problems the walk itself found.
+
+    `rglob` does not descend into a symlinked directory, so a quadrant folder
+    that is a symlink would hide its contents from every rule. That is reported
+    rather than followed, because following one invites a cycle.
+    """
+    files: list[Path] = []
+    problems: list[Problem] = []
+    for path in sorted(DOCS.rglob("*")):
+        if path.is_symlink():
+            kind = "folder" if path.is_dir() else "file"
+            problems.append(
+                Problem(path, f"symlinked {kind} - the gate cannot see through it")
+            )
+        elif path.is_file():
+            files.append(path)
+    return files, problems
 
 
 def check_docs() -> list[Problem]:
     """Run every documentation check and return the problems found."""
-    problems: list[Problem] = []
-    maintained: list[Path] = []
+    if not DOCS.is_dir():
+        return [Problem(DOCS, f"{DOCS_DIRNAME}/ does not exist")]
 
-    for path in sorted(DOCS.rglob("*.md")) + sorted(DOCS.rglob("*.yaml")):
+    files, problems = walk_docs()
+    maintained: list[Path] = []
+    for path in files:
         found, is_maintained = classify(path, path.relative_to(DOCS))
         problems.extend(found)
         if is_maintained:
@@ -363,13 +612,18 @@ def check_docs() -> list[Problem]:
 
     index = DOCS / INDEX_NAME
     if not index.exists():
-        problems.append(Problem(DOCS, f"docs/{INDEX_NAME} is missing"))
+        problems.append(Problem(DOCS, f"{DOCS_DIRNAME}/{INDEX_NAME} is missing"))
     else:
         problems.extend(check_index(index.read_text(encoding="utf-8"), maintained))
         problems.extend(check_links(index))
 
     problems.extend(check_backlog(DOCS / "BACKLOG.md"))
-    return problems
+    return [
+        Problem(problem.path, problem.message, warning=True)
+        if not problem.warning and is_allowlisted(problem.path)
+        else problem
+        for problem in problems
+    ]
 
 
 def main() -> int:
@@ -378,11 +632,12 @@ def main() -> int:
     for problem in sorted(problems, key=lambda p: (p.warning, str(p.path))):
         # This is a CLI check reporting to a terminal, not application logging.
         print(problem.render())  # noqa: T201
-    failures = [p for p in problems if not p.warning]
+    failures = [problem for problem in problems if not problem.warning]
     if failures:
-        print(f"\n{len(failures)} documentation problem(s). See docs/README.md.")  # noqa: T201
+        where = f"{DOCS_DIRNAME}/{INDEX_NAME}"
+        print(f"\n{len(failures)} documentation problem(s). See {where}.")  # noqa: T201
         return 1
-    print("docs/ structure OK")  # noqa: T201
+    print(f"{DOCS_DIRNAME}/ structure OK")  # noqa: T201
     return 0
 
 

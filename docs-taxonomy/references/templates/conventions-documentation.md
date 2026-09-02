@@ -24,7 +24,14 @@ paragraph landing in a doc merely because that doc was already open.
 ### Never narrate an incident in a maintained doc
 
 A passage that recounts a past attempt, a failure, or a measured symptom does not belong in
-`explanation/`, `how-to/`, `reference/` or `conventions/`.
+`how-to/`, `reference/` or `conventions/`. CI fails on one there.
+
+`explanation/` is the exception, and CI only warns: explaining why the code is shaped this
+way sometimes needs the attempt that failed. What still does not belong there is the **full
+write-up** — symptoms, measurements, a traceback. That is a journal entry, and the
+explanation links it.
+
+`journal/` is exempt outright. Recording what failed is what it is for.
 
 Markers: `used to`, `we tried`, `before this fix`, `an earlier version did X`,
 `3 attempts out of 4`.
@@ -106,7 +113,9 @@ tables are the pattern to copy.}}
 
 ## Language
 
-**{{English}}.** All of `docs/`, checked by CI.
+**{{English}}.** All of `docs/`, the journal included, checked by CI. A generated file
+under a maintained folder — an API spec, a fixture — is checked for its name and its links
+only.
 
 {{The exception: quoted prompt text and quoted user-facing labels, both inside code fences
 or backticks. Business vocabulary keeps its name in running text — {{terms}} — because

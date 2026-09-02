@@ -23,7 +23,7 @@ consequences — something a future reader would otherwise have to reverse-engin
 code and would reasonably question.
 
 Not: a bug fix (that is [`../solutions/`](../solutions/README.md)), and not an
-implementation plan (that is [`../plans/`](../plans/)).
+implementation plan ({{that is [`../plans/`](../plans/)}}).
 
 {{On a brownfield restructure, write one ADR per choice the restructure itself made - the
 taxonomy, the gate, what warns instead of failing, the backlog mechanism. Those are new
