@@ -105,7 +105,7 @@ INCIDENT_MARKERS = (
         r"\bused to (?:be|have|do|fire|return|inject|strip|pass|show|print|ask|"
         r"call|reorder|crash|hold|live|work|happen|contain|produce|move|wait)\b"
     ),
-    r"\bpreviously,\b",
+    r"\bpreviously,",
     r"\bwas tried\b",
     r"\bwe tried\b",
     r"\battempts? (?:failed|out of)\b",
@@ -278,10 +278,16 @@ def outside_fences(body: str) -> list[tuple[int, str]]:
     return lines
 
 
+#: Inline code, so a rule scanning prose does not fire on a code span's
+#: contents. Shared by every check that needs a line with code spans removed,
+#: so the definition of "inline code" cannot drift between them.
+INLINE_CODE = re.compile(r"`[^`\n]*`")
+
+
 def strip_code(body: str) -> str:
     """Return the body with fenced blocks and inline code removed."""
     plain = "\n".join(text for _, text in outside_fences(body))
-    return re.sub(r"`[^`\n]*`", "", plain)
+    return INLINE_CODE.sub("", plain)
 
 
 def prose_lines(body: str) -> int:
@@ -367,7 +373,7 @@ def check_prose(path: Path, body: str, folder: str, offset: int = 0) -> list[Pro
     plain = strip_code(body)
     return [
         *check_language(path, body, offset),
-        *check_narration(path, plain, folder),
+        *check_narration(path, body, folder, offset),
         *check_no_backlog_section(path, plain),
         *check_placeholders(path, plain),
         *check_filler(path, plain),
@@ -375,21 +381,36 @@ def check_prose(path: Path, body: str, folder: str, offset: int = 0) -> list[Pro
     ]
 
 
-def check_narration(path: Path, plain: str, folder: str) -> list[Problem]:
-    """Report incident narration, failing or warning according to the folder."""
+def check_narration(path: Path, body: str, folder: str, offset: int = 0) -> list[Problem]:
+    """Report every incident narration, failing or warning according to the folder.
+
+    One `Problem` per occurrence, not per marker: a second instance of the same
+    phrase - or of a different one - must surface as its own line, or a coding
+    agent that only clears the first hit can never see there is a second. Two
+    markers overlapping the same span (e.g. "3 attempts out of 5" matching both
+    the generic "attempts... out of" marker and the "N attempts out of N"
+    marker) count as one occurrence, not two.
+    """
     if folder not in NARRATION_FAILS and folder not in NARRATION_WARNS:
         return []
     problems: list[Problem] = []
-    for marker in INCIDENT_MARKERS:
-        if hit := re.search(marker, plain, re.IGNORECASE):
-            problems.append(
-                Problem(
-                    path,
-                    f"incident narration {hit.group(0)!r} - move it to "
-                    f"{JOURNAL}/solutions/ and leave the rule with a link",
-                    warning=folder not in NARRATION_FAILS,
+    for number, raw in outside_fences(body):
+        line = INLINE_CODE.sub("", raw)
+        claimed: list[tuple[int, int]] = []
+        for marker in INCIDENT_MARKERS:
+            for hit in re.finditer(marker, line, re.IGNORECASE):
+                span = hit.span()
+                if any(span[0] < end and start < span[1] for start, end in claimed):
+                    continue
+                claimed.append(span)
+                problems.append(
+                    Problem(
+                        path,
+                        f"line {number + offset} incident narration {hit.group(0)!r} - "
+                        f"move it to {JOURNAL}/solutions/ and leave the rule with a link",
+                        warning=folder not in NARRATION_FAILS,
+                    )
                 )
-            )
     return problems
 
 
@@ -441,7 +462,7 @@ def check_language(path: Path, body: str, offset: int) -> list[Problem]:
     if SECOND_LANGUAGE_MARKERS is None:
         return []
     for number, raw in outside_fences(body):
-        line = re.sub(r"`[^`\n]*`", "", raw)
+        line = INLINE_CODE.sub("", raw)
         hits = {hit.lower() for hit in SECOND_LANGUAGE_MARKERS.findall(line)}
         if len(hits) >= LANGUAGE_THRESHOLD:
             message = f"line {number + offset} is {LANGUAGE_NAME}: {sorted(hits)[:6]}"

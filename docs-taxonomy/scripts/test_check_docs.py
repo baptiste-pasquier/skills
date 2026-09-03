@@ -304,6 +304,25 @@ def test_incident_narration_fails_in_reference(valid: Tree) -> None:
     assert "incident narration" in valid.failures()
 
 
+def test_incident_narration_reports_every_occurrence(valid: Tree) -> None:
+    """A second instance must surface even though the first already failed.
+
+    One `Problem` per marker match, not per file: otherwise an agent that
+    leaves the existing narration in place while adding a new one never sees
+    the new one flagged, since the file was already failing.
+    """
+    valid.write(
+        "reference/a-contract.md",
+        frontmatter("reference")
+        + "\nThe node used to be called first.\n"
+        + "\nWe tried a different order first.\n",
+    )
+    narration = [p for p in cd.check_docs() if "incident narration" in p.message]
+    assert len(narration) == 2
+    lines = {re.search(r"line (\d+)", p.message).group(1) for p in narration}
+    assert len(lines) == 2
+
+
 def test_incident_narration_fails_in_a_how_to(valid: Tree) -> None:
     """A procedure is not the place for the story of a past failure."""
     valid.write(
@@ -340,6 +359,29 @@ def test_used_to_meaning_used_for_passes(valid: Tree) -> None:
         frontmatter("reference") + "\nField names used to build citations.\n",
     )
     assert valid.run()[0] == []
+
+
+def test_previously_comma_is_narration(valid: Tree) -> None:
+    """`previously,` must fire even though a comma never starts a word.
+
+    The marker used to end in `\\b`, a boundary that a comma followed by a
+    space can never form - so it silently matched nothing.
+    """
+    valid.write(
+        "reference/a-contract.md",
+        frontmatter("reference") + "\nThe cache previously, held stale data.\n",
+    )
+    assert "incident narration" in valid.failures()
+
+
+def test_overlapping_narration_markers_count_once(valid: Tree) -> None:
+    """Two markers matching the same span are one occurrence, not two."""
+    valid.write(
+        "reference/a-contract.md",
+        frontmatter("reference") + "\n3 attempts out of 5 did not reproduce it.\n",
+    )
+    narration = [p for p in cd.check_docs() if "incident narration" in p.message]
+    assert len(narration) == 1
 
 
 def test_a_backlog_section_fails(valid: Tree) -> None:
