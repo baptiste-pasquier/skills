@@ -49,11 +49,15 @@ does not retell the story.
   **warns** there rather than failing. A full write-up with symptoms and measurements still
   belongs in a journal entry, linked. `docs/journal/` is exempt: narrating what failed is
   its purpose.
-- **Never add a backlog, TODO or "future work" section under `docs/`** — {{open an issue
-  with the `backlog` label}}. The gate fails on a section *headed* `TODO`, `Backlog`,
-  `Future work`, `Roadmap` or `Open questions`; a single sentence asserting unbuilt work
-  gets past it, so link the issue instead of writing the sentence. A `TODO` comment in a
-  source file is fine, and a doc may point at one; a *list* of unbuilt work in prose is not.
+- **Never add a backlog, TODO or "future work" section under `docs/`.** {{PICK ONE — with a
+  mirror: `docs/BACKLOG.md` mirrors the issues labelled `backlog` and a GitHub Action
+  refreshes it; never hand-edit it. Without one: unbuilt work lives in the issue tracker and
+  nowhere else — `gh issue list --label backlog` to read it, `gh issue create --label
+  backlog` to add an item.}} **Link the issue** from the doc rather than describing the
+  missing work. The gate fails on a section *headed* `TODO`, `Backlog`, `Future work`,
+  `Roadmap` or `Open questions`; a single sentence asserting unbuilt work gets past it, so
+  link instead of writing the sentence. A `TODO` comment in a source file is fine, and a doc
+  may point at one; a *list* of unbuilt work in prose is not.
 - **Every maintained doc carries frontmatter** with `title`, `type` (equal to its folder
   name), `audience`, `status`, `stale_after`, and appears in `docs/README.md`. A key present
   but empty counts as missing. A passed `stale_after` **warns** rather than fails, so a

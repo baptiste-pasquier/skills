@@ -59,8 +59,30 @@ means it is explanation. No means it is a journal entry.
 
 ### Never write a backlog
 
-No TODO section, no "future work", no "not yet implemented" list anywhere in `docs/`.
-{{Open an issue with the `backlog` label, then run `make sync-backlog`.}}
+No TODO section, no "future work", no "not yet implemented" list anywhere in `docs/`, and
+**link the issue** rather than describing the missing work.
+
+{{PICK ONE — see the skill's references/backlog.md. If a workflow can push to the default
+branch, keep the mirror:
+
+Unbuilt work is mirrored into [`../BACKLOG.md`](../BACKLOG.md) from the issues labelled
+`backlog`. A GitHub Action refreshes it on every issue event, so nobody maintains it by
+hand; `make sync-backlog` regenerates it locally. The mirror is as fresh as its last
+refresh and the tracker is correct either way — a stale mirror is an out-of-date
+convenience, never a wrong answer.
+
+Otherwise, no mirror:
+
+Unbuilt work lives in the issue tracker and nowhere else:
+
+```bash
+gh issue list --label backlog          # what is known, wanted, and not built
+gh issue create --label backlog        # add an item
+```
+
+There is deliberately no mirror under `docs/`: a copy nobody refreshes automatically is a
+cache of one command, and keeping it honest costs a generator, a hook, a workflow and a
+gate rule.}}
 
 A `TODO` comment in a source file is fine, and a doc may point at one. What is banned is a
 **list of unbuilt work** inside prose, because nothing ever prunes it.

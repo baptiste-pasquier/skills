@@ -838,3 +838,17 @@ def test_the_shipped_templates_pass_the_gate(tree: Tree) -> None:
     )
     failures, _ = tree.run()
     assert failures == []
+
+
+def test_the_tracker_only_configuration_rejects_a_mirror(
+    valid: Tree, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Both mirror switches off: a `BACKLOG.md` becomes a loose root file.
+
+    The two constants describe the same file, so turning one off without the
+    other leaves a project that tolerates a mirror it never checks.
+    """
+    monkeypatch.setattr(cd, "GENERATED_BACKLOG_HEADER", None)
+    monkeypatch.setattr(cd, "ROOT_ALLOWED", {cd.INDEX_NAME})
+    valid.write("BACKLOG.md", "# a mirror nobody refreshes\n")
+    assert "loose file at the root" in valid.failures()
