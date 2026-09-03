@@ -49,7 +49,7 @@ push to the default branch?**
 
 | Option | Cost | Suits |
 | --- | --- | --- |
-| **Mirror, refreshed by a GitHub Action** | A generator, a workflow with `contents: write`, a header gate rule, a title-escaping contract | A repo whose default branch accepts a bot push. Preferred where possible: an agent sees unbuilt work with no tool call, and nobody has to remember anything. |
+| **Mirror, refreshed by a GitHub Action** | A generator, a pre-commit hook, a workflow with `contents: write`, a header gate rule, a title-escaping contract | A repo whose default branch accepts a bot push. Preferred where possible: an agent sees unbuilt work with no tool call, and nobody has to remember anything. |
 | **Tracker only, `gh issue list` in the agents file** | An agent with no `gh` credentials cannot read the backlog at all | **Everything else**, and the simpler answer anywhere. Zero machinery. |
 | **Mirror refreshed by hand, or by a report-only job** | The full apparatus *and* a human who remembers | Nothing. See `backlog.md`. |
 | **Gitignored mirror** | The full apparatus, none of the benefit | Nothing. Argued in `backlog.md`. |

@@ -632,13 +632,36 @@ def test_the_language_rule_can_be_switched_off(
     assert valid.run() == ([], [])
 
 
-def test_the_backlog_check_can_be_switched_off(
+def test_switching_the_mirror_off_rejects_the_file_too(
     valid: Tree, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`GENERATED_BACKLOG_HEADER = None` must not raise a TypeError."""
+    """One switch, both consequences: no header to check, no file tolerated.
+
+    This asserted `== []` once, which made the half-configured state - the gate
+    no longer checking a mirror it still allows at the root - the *documented*
+    behaviour. A hand-written mirror would have passed forever.
+    """
     monkeypatch.setattr(cd, "GENERATED_BACKLOG_HEADER", None)
     valid.write("BACKLOG.md", "# A hand-written backlog\n")
-    assert valid.run()[0] == []
+    assert "loose file at the root" in valid.failures()
+
+
+def test_switching_the_mirror_off_raises_no_type_error(
+    valid: Tree, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`None.startswith` was the original crash; with no file there is nothing."""
+    monkeypatch.setattr(cd, "GENERATED_BACKLOG_HEADER", None)
+    assert valid.run() == ([], [])
+
+
+def test_the_root_allowlist_cannot_be_set_to_disagree() -> None:
+    """The derivation itself: one setting decides both, so no pair can conflict."""
+    assert cd.BACKLOG_NAME in cd.root_allowed()
+    import unittest.mock
+
+    with unittest.mock.patch.object(cd, "GENERATED_BACKLOG_HEADER", None):
+        assert cd.BACKLOG_NAME not in cd.root_allowed()
+        assert cd.INDEX_NAME in cd.root_allowed()
 
 
 def test_the_size_warning_can_be_switched_off(
@@ -843,12 +866,34 @@ def test_the_shipped_templates_pass_the_gate(tree: Tree) -> None:
 def test_the_tracker_only_configuration_rejects_a_mirror(
     valid: Tree, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Both mirror switches off: a `BACKLOG.md` becomes a loose root file.
-
-    The two constants describe the same file, so turning one off without the
-    other leaves a project that tolerates a mirror it never checks.
-    """
+    """The tracker-only configuration: a `BACKLOG.md` becomes a loose root file."""
     monkeypatch.setattr(cd, "GENERATED_BACKLOG_HEADER", None)
-    monkeypatch.setattr(cd, "ROOT_ALLOWED", {cd.INDEX_NAME})
     valid.write("BACKLOG.md", "# a mirror nobody refreshes\n")
     assert "loose file at the root" in valid.failures()
+
+
+def test_an_unresolved_template_placeholder_fails(valid: Tree) -> None:
+    """A `{{PICK ONE ...}}` block left in a shipped doc is not content."""
+    valid.write(
+        "conventions/writing.md",
+        frontmatter("conventions")
+        + "\n**Scope: docs prose.**\n\n{{PICK ONE - with a mirror: ... without: ...}}\n",
+    )
+    assert "unresolved template placeholder" in valid.failures()
+
+
+def test_an_unresolved_placeholder_in_the_journal_fails(valid: Tree) -> None:
+    """Two of the templates land in `journal/`, so the rule reaches there too."""
+    valid.write(
+        "journal/solutions/logic/a-lesson.md", "# A lesson\n\n{{the category list}}\n"
+    )
+    assert "unresolved template placeholder" in valid.failures()
+
+
+def test_a_placeholder_inside_a_code_fence_passes(valid: Tree) -> None:
+    """Jinja, Handlebars and Helm templates are legitimate content in a fence."""
+    valid.write(
+        "reference/a-contract.md",
+        frontmatter("reference") + "\n```yaml\nname: {{ .Release.Name }}\n```\n",
+    )
+    assert valid.run()[0] == []

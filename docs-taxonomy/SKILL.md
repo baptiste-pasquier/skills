@@ -181,10 +181,11 @@ cp "$SKILL_DIR/scripts/test_check_docs.py" tests/unit_tests/scripts/test_check_d
 cp "$SKILL_DIR/scripts/sync_backlog.py"           scripts/sync_backlog.py
 cp "$SKILL_DIR/scripts/test_sync_backlog.py"      tests/unit_tests/scripts/test_sync_backlog.py
 cp "$SKILL_DIR/scripts/check_backlog_staging.sh"  scripts/check_backlog_staging.sh
+cp "$SKILL_DIR/scripts/test_check_backlog_staging.py" tests/unit_tests/scripts/
 ```
 
 The test imports the gate either as `scripts.check_docs` or as a sibling file, so both
-layouts work. Run it once from the project root before wiring anything: 100 tests, no
+layouts work. Run it once from the project root before wiring anything: 107 tests, no
 project `docs/` needed — every case builds its own tree.
 
 Adapting means **editing a value in the CONFIGURATION block, never the code below it**.
@@ -193,7 +194,7 @@ Every switch has an "off" value the test suite exercises:
 | Set this | To get |
 | --- | --- |
 | `SECOND_LANGUAGE_MARKERS = None` | no language rule |
-| `GENERATED_BACKLOG_HEADER = None`, `ROOT_ALLOWED = {INDEX_NAME}` | no backlog mirror (tracker only) |
+| `GENERATED_BACKLOG_HEADER = None` | no backlog mirror (tracker only); the root allowlist follows |
 | `PROSE_CAP_DEFAULT = None` | no size warning |
 | `NARRATION_FAILS = ()` | narration left to review |
 | `SCOPE_FOLDER = None` | no `Scope:` line required |
@@ -228,8 +229,19 @@ With a mirror, add its hook too:
 ```
 
 It answers "was this hand-edited?" by regenerating and comparing, not by inspecting what
-else is staged — and it passes when the tracker is unreachable, rather than blocking a
-commit for being offline.
+else is staged. It passes when the tracker is unreachable — being offline must not block a
+commit — and **fails** on everything else, because a hook that reports every error as
+success is not a gate.
+
+The generated header names a refresh command, so add the target the header promises:
+
+```makefile
+.PHONY: sync-backlog
+sync-backlog:
+	python scripts/sync_backlog.py
+```
+
+Change `REFRESH_COMMAND` in the generator if the project names it differently.
 
 **What must fail:**
 
@@ -317,10 +329,11 @@ be able to follow the format.
 | `references/templates/README.md` | Index of the templates, and where each one lands. |
 | `references/templates/` | `docs-readme.md`, `conventions-documentation.md`, `solutions-readme.md`, `decisions-readme.md`, `agents-section.md`, `frontmatter.md` |
 | `scripts/check_docs.py` | The gate. Copy in, edit the CONFIGURATION block only. |
-| `scripts/test_check_docs.py` | Its tests: 102 cases, every rule in the failing direction. |
+| `scripts/test_check_docs.py` | Its tests: 107 cases, every rule in the failing direction. |
 | `scripts/sync_backlog.py` | The backlog mirror generator. **Only** if an Action refreshes it. |
-| `scripts/test_sync_backlog.py` | Its tests, including hostile issue titles. |
+| `scripts/test_sync_backlog.py` | Its tests: 23 cases, including hostile issue titles. |
 | `scripts/check_backlog_staging.sh` | Pre-commit hook rejecting a hand edit to the mirror. Ships with the generator or not at all. |
+| `scripts/test_check_backlog_staging.py` | Its tests: 9 cases, every exit path, on a fake `PATH`. |
 
 The script here is the canonical copy. Once copied into a project it belongs to that
 project and diverges as its taxonomy does — nothing syncs the two, and nothing should.

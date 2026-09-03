@@ -43,6 +43,11 @@ except ImportError:  # a project without loguru still gets readable output
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_PATH = REPO_ROOT / "docs" / "BACKLOG.md"
+#: A file that marks REPO_ROOT as the skill rather than an adopting project. The
+#: script resolves its output relative to itself, so running it in place writes
+#: into the skill - which happened. Set to None once copied, or leave it: an
+#: adopting project has no SKILL.md at its root.
+NOT_A_PROJECT_MARKER = "SKILL.md"
 
 #: Only issues carrying this label reach the backlog. Everything else - bug
 #: reports, questions, support - stays out.
@@ -75,9 +80,16 @@ those.
 """
 
 TABLE_HEAD = "\n| # | Item | Area |\n| --- | --- | --- |\n"
+#: One row. Change it and TABLE_HEAD together - they describe the same table, and
+#: a row format hidden in the code below could not follow a changed heading.
+TABLE_ROW = "| [#{number}]({url}) | {title} | {area} |\n"
 EMPTY = "\nNothing open.\n"
 
 # ============================ END CONFIGURATION ============================
+
+
+class Truncated(RuntimeError):
+    """The tracker returned a full page, so the mirror would be incomplete."""
 
 
 def fetch_issues() -> list[dict]:
@@ -103,8 +115,12 @@ def fetch_issues() -> list[dict]:
     )
     issues = json.loads(result.stdout or "[]")
     if len(issues) >= PAGE_SIZE:
-        logger.warning(
-            f"Hit the {PAGE_SIZE}-issue page size - the mirror may be truncated."
+        # Not a warning. A stale mirror is an out-of-date convenience; a silently
+        # truncated one is a wrong answer, and the rows it drops are exactly the
+        # ones nobody is looking at.
+        raise Truncated(
+            f"the tracker returned at least {PAGE_SIZE} issues, so the mirror "
+            f"would be incomplete. Raise PAGE_SIZE, or narrow the label."
         )
     return sorted(issues, key=lambda issue: issue["number"])
 
@@ -116,7 +132,9 @@ def area_of(issue: dict) -> str:
         for label in issue.get("labels", [])
         if label["name"].startswith(AREA_PREFIX)
     )
-    return ", ".join(areas) if areas else NO_AREA
+    # A label is as attacker-controlled as a title wherever anyone may create
+    # one, and it lands in a table cell just the same.
+    return cell(", ".join(areas)) if areas else NO_AREA
 
 
 def cell(title: str) -> str:
@@ -125,17 +143,34 @@ def cell(title: str) -> str:
     An issue title is written by anyone who can open an issue, and it is mirrored
     into a file that agents read as repository truth. A title may also be edited
     *after* a maintainer applied the label, so the text a triager approved is not
-    necessarily the text arriving here. Three things are neutralised: a pipe
-    would add a column, a newline would end the table and let the rest of the
-    title become markdown of its own, and an HTML comment marker could close this
-    file's generated header.
+    necessarily the text arriving here.
+
+    What is neutralised is anything that changes the rendered *structure* rather
+    than the words:
+
+    * a newline, which ends the table and lets the rest become markdown of its
+      own - a heading, a list, an instruction addressed to an agent;
+    * `|`, which adds a column;
+    * `<` and `>`, so no HTML tag renders (this also disarms `<!--` and `-->`,
+      which could close the generated header);
+    * `[` and `]`, so a title cannot become a link pointing somewhere else.
+
+    The trade-off, stated: intentional formatting in a title is shown literally.
+    A title reading `use [the API]` renders with its brackets. That is the right
+    way round - a mirror reproduces what the tracker says, and the tracker's
+    titles are text, not markup.
     """
     collapsed = " ".join(title.split())
-    return (
-        collapsed.replace("|", r"\|")
-        .replace("<!--", "&lt;!--")
-        .replace("-->", "--&gt;")
-    )
+    for source, target in (
+        ("&", "&amp;"),  # first, or it would double-escape the others
+        ("|", r"\|"),
+        ("<", "&lt;"),
+        (">", "&gt;"),
+        ("[", r"\["),
+        ("]", r"\]"),
+    ):
+        collapsed = collapsed.replace(source, target)
+    return collapsed
 
 
 def render(issues: list[dict]) -> str:
@@ -143,7 +178,7 @@ def render(issues: list[dict]) -> str:
     if not issues:
         return HEADER + EMPTY
     rows = "".join(
-        "| [#{number}]({url}) | {title} | {area} |\n".format(
+        TABLE_ROW.format(
             number=issue["number"],
             url=issue["url"],
             title=cell(issue["title"]),
@@ -156,6 +191,13 @@ def render(issues: list[dict]) -> str:
 
 def main() -> int:
     """Regenerate the backlog file and report whether it changed."""
+    if NOT_A_PROJECT_MARKER and (REPO_ROOT / NOT_A_PROJECT_MARKER).exists():
+        logger.error(
+            f"{REPO_ROOT} holds a {NOT_A_PROJECT_MARKER}, so this is the skill's "
+            "own copy, not a project. Copy the script into the project first."
+        )
+        return 1
+
     try:
         issues = fetch_issues()
     except FileNotFoundError:
@@ -163,6 +205,9 @@ def main() -> int:
         return 1
     except subprocess.CalledProcessError as error:
         logger.error(f"`gh issue list` failed: {(error.stderr or '').strip()}")
+        return 1
+    except Truncated as error:
+        logger.error(f"Refusing to write a partial mirror: {error}")
         return 1
 
     rendered = render(issues)

@@ -27,18 +27,43 @@ whole of it. A mirror refreshed by hand — or by a job that only *reports* stal
 cache of one command, and it costs a generator, a hook, a workflow, a gate rule and a
 title-escaping contract to keep honest.
 
-Put the question to the owner, then check rather than trust the answer:
+Put the question to the owner, then check rather than trust the answer. **Two APIs, not
+one:** rulesets and classic branch protection are separate, and a repo protected the classic
+way returns an empty ruleset list — indistinguishable from "nothing blocks a push" if you
+only ask the first.
+
+Do not send stderr to `/dev/null` here. A 403 from a token missing `administration:read`
+reads exactly like "no protection", and that is the one mistake this check exists to
+prevent.
 
 ```bash
-gh api repos/<owner>/<repo>/rulesets 2>/dev/null | \
-  python3 -c "import json,sys; [print(r['name'], r.get('source_type'), r.get('source')) for r in json.load(sys.stdin)]"
-gh api repos/<owner>/<repo>/rulesets/<id> 2>/dev/null | \
-  python3 -c "import json,sys; d=json.load(sys.stdin); print([r['type'] for r in d['rules']], 'bypass:', d.get('bypass_actors'))"
+REPO=<owner>/<repo>
+BRANCH=$(gh repo view "$REPO" --json defaultBranchRef -q .defaultBranchRef.name)
+
+# 1. Classic branch protection. 404 means none; 403 means you cannot tell.
+gh api "repos/$REPO/branches/$BRANCH/protection" \
+  --jq '{pr_required: (.required_pull_request_reviews != null),
+         enforce_admins: .enforce_admins.enabled}'
+
+# 2. Rulesets, and whose they are.
+gh api "repos/$REPO/rulesets" --jq '.[] | {id, name, source_type, source}'
+
+# 3. For each ruleset id from step 2:
+gh api "repos/$REPO/rulesets/<id>" \
+  --jq '{rules: [.rules[].type], bypass: .bypass_actors}'
 ```
 
-A `pull_request` rule with no bypass actors means a bot push cannot land. And
-**an organization-level ruleset cannot be overridden by a repo-level bypass** — check
-`source_type` before concluding the repo owner can fix it.
+Read it this way:
+
+| What you see | What it means |
+| --- | --- |
+| step 1 returns 404, step 2 returns `[]` | Nothing blocks a push. **Ship the mirror.** |
+| a `pull_request` rule, or `required_pull_request_reviews`, with no bypass actors | A bot push cannot land. **Tracker only.** |
+| `source_type: Organization` | Not the repo owner's call to change — treat as final |
+| a 403 on either call | You cannot answer the question. Ask someone who can, or assume protected |
+
+`enforce_admins` matters too: without it, an admin token can push through classic
+protection, but `GITHUB_TOKEN` is not an admin.
 
 ## Tracker only
 
@@ -52,11 +77,12 @@ generator, no workflow. The agents file carries the commands instead:
   rather than describing the missing work.
 ```
 
-Then, in the gate's CONFIGURATION block, turn the mirror's two rules off:
+Then, in the gate's CONFIGURATION block, turn the mirror off. **One setting**, because two
+describing the same file could be set to disagree — and the half-configured state, where the
+gate no longer checks a mirror it still tolerates, accepts a hand-written one forever:
 
 ```python
-ROOT_ALLOWED = {INDEX_NAME}          # no BACKLOG.md at the docs root
-GENERATED_BACKLOG_HEADER = None      # no generated file to check
+GENERATED_BACKLOG_HEADER = None      # no mirror; the root allowlist follows
 ```
 
 **What this costs:** an agent that can read files but not run commands — a sandbox with no
@@ -79,14 +105,21 @@ Only when the workflow below can actually push. Then:
 - **Deterministic ordering** (by issue number). Otherwise every run diffs for nothing.
 - **A generated header** naming the generator and the refresh command, plus a gate rule that
   fails when the header is gone.
-- **Escape the issue title.** A title is written by anyone who can open an issue, and can be
-  edited *after* a maintainer applied the label — so the text a triager approved is not the
-  text landing in a file agents read as repository truth. Collapse whitespace (a newline
-  ends the table and lets the rest become markdown of its own), escape the cell separator,
-  and neutralise HTML comment markers so a title cannot close the generated header.
+- **Escape the issue title, and the area labels with it.** Both are written by anyone who
+  can open an issue, and a title can be edited *after* a maintainer applied the label — so
+  the text a triager approved is not the text landing in a file agents read as repository
+  truth. Neutralise everything that changes the rendered **structure**: a newline (it ends
+  the table, and the rest becomes markdown of its own — a heading, a list, an instruction
+  addressed to an agent), `|`, `<` and `>` (no HTML tag renders, which also disarms `<!--`
+  and `-->`), and `[` `]` (no title becomes a link pointing elsewhere). The trade-off,
+  stated: intentional formatting in a title shows literally. That is the right way round —
+  a tracker's titles are text, not markup.
 - **Track the file.** Gitignoring it removes the only reason it exists.
 
 ### The workflow that keeps it fresh
+
+Copy the SHAs from a workflow already in the repo rather than trusting the ones below —
+a pinned digest here is a snapshot, and pinning is the point.
 
 ```yaml
 name: Backlog mirror
@@ -98,24 +131,38 @@ on:
     - cron: "0 6 * * *"      # catches whatever the events missed
   workflow_dispatch:
 
+# Read-only by default; the one job that writes asks for it.
 permissions:
-  contents: write            # the push
-  issues: read
+  contents: read
+
+# An issue rename during a labelling spree fires two runs that would push onto
+# each other. Serialise, and do not cancel: the last run must be the last state.
+concurrency:
+  group: backlog-mirror
+  cancel-in-progress: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write        # the push
+      issues: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@<sha>          # actions/checkout, pinned
         with:
           ref: <default-branch>
-      - uses: actions/setup-python@v6
+          # The push below uses GITHUB_TOKEN explicitly, so no credential needs
+          # to stay behind in .git/config.
+          persist-credentials: false
+      - uses: actions/setup-python@<sha>      # actions/setup-python, pinned
         with:
           python-version-file: .python-version
       - run: python scripts/sync_backlog.py
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Commit when the mirror changed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if git diff --quiet -- docs/BACKLOG.md; then
             echo "No change."; exit 0
@@ -124,17 +171,21 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/BACKLOG.md
           git commit -m "docs: refresh the backlog mirror [skip ci]"
-          git push
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" \
+            "HEAD:<default-branch>"
 ```
 
-Four details in there are not guessable, and each has a reason:
+Seven details in there are not guessable, and each has a reason:
 
 | Detail | Why |
 | --- | --- |
 | `[skip ci]` in the message | The refresh must not spend a CI run on a generated table |
 | commit **only when changed** | Otherwise an empty commit lands on every issue event |
-| `GH_TOKEN` in `env`, never interpolated into the `run:` body | An issue title reaching a shell is an injection |
-| pin the actions, install locked deps | The same supply-chain rule as every other workflow in the repo |
+| `concurrency` without `cancel-in-progress` | Two issue events would otherwise push onto each other; cancelling would drop the newest state |
+| `permissions` per **job**, `contents: read` at the top | The generator step has no reason to hold a write token |
+| `persist-credentials: false` | Otherwise the token stays in `.git/config` for every later step |
+| `GH_TOKEN` in `env`, never interpolated into a `run:` body | An issue title reaching a shell is an injection |
+| actions pinned to a **SHA**, deps installed from the lockfile | The same supply-chain rule as every other workflow in the repo |
 
 **Never make the mirror a check on pull requests.** Issues change asynchronously from
 commits, so that fails unrelated PRs. What *can* gate a PR are properties of the diff: the

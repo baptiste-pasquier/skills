@@ -115,20 +115,36 @@ def test_issues_are_ordered_by_number(monkeypatch: pytest.MonkeyPatch) -> None:
     assert [i["number"] for i in fetch_issues()] == [2, 9]
 
 
-def test_hitting_the_page_size_is_reported(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A truncated mirror is logged, never silently short."""
+def test_hitting_the_page_size_refuses_to_produce_a_mirror(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A truncated mirror is a wrong answer, so nothing is written at all."""
     payload = json.dumps([issue(n, f"item {n}") for n in range(sync_backlog.PAGE_SIZE)])
 
     def fake_run(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess:
         return subprocess.CompletedProcess([], 0, stdout=payload, stderr="")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    warnings: list[str] = []
-    monkeypatch.setattr(
-        sync_backlog.logger, "warning", lambda msg, *_: warnings.append(msg)
-    )
-    fetch_issues()
-    assert warnings and "truncated" in warnings[0]
+    with pytest.raises(sync_backlog.Truncated):
+        fetch_issues()
+
+
+def test_truncation_leaves_any_existing_mirror_untouched(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Better a stale mirror than a partial one: `main` exits 1 and writes nothing."""
+    target = tmp_path / "docs" / "BACKLOG.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("the previous mirror\n", encoding="utf-8")
+    monkeypatch.setattr(sync_backlog, "OUTPUT_PATH", target)
+    monkeypatch.setattr(sync_backlog, "NOT_A_PROJECT_MARKER", None)
+
+    def truncated() -> list[dict]:
+        raise sync_backlog.Truncated("too many")
+
+    monkeypatch.setattr(sync_backlog, "fetch_issues", truncated)
+    assert main() == 1
+    assert target.read_text(encoding="utf-8") == "the previous mirror\n"
 
 
 def test_no_output_is_treated_as_no_issues(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -145,6 +161,7 @@ def test_main_writes_the_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     """A successful run writes the mirror and exits 0."""
     target = tmp_path / "docs" / "BACKLOG.md"
     monkeypatch.setattr(sync_backlog, "OUTPUT_PATH", target)
+    monkeypatch.setattr(sync_backlog, "NOT_A_PROJECT_MARKER", None)
     monkeypatch.setattr(sync_backlog, "fetch_issues", lambda: [issue(1, "a thing")])
     assert main() == 0
     assert "a thing" in target.read_text(encoding="utf-8")
@@ -156,6 +173,7 @@ def test_main_fails_when_gh_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     def missing() -> list[dict]:
         raise FileNotFoundError
 
+    monkeypatch.setattr(sync_backlog, "NOT_A_PROJECT_MARKER", None)
     monkeypatch.setattr(sync_backlog, "fetch_issues", missing)
     assert main() == 1
 
@@ -166,6 +184,7 @@ def test_main_fails_when_gh_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     def failing() -> list[dict]:
         raise subprocess.CalledProcessError(1, "gh", stderr="not authenticated")
 
+    monkeypatch.setattr(sync_backlog, "NOT_A_PROJECT_MARKER", None)
     monkeypatch.setattr(sync_backlog, "fetch_issues", failing)
     assert main() == 1
 
@@ -191,3 +210,72 @@ def test_a_rerun_is_byte_identical_whatever_order_the_api_returns(
         monkeypatch.setattr(subprocess, "run", fake_run)
         rendered.append(render(fetch_issues()))
     assert rendered[0] == rendered[1]
+
+
+def test_running_from_the_skill_directory_refuses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The defect found by running it for real: it wrote into the skill itself."""
+    monkeypatch.setattr(sync_backlog, "fetch_issues", lambda: [issue(1, "a thing")])
+    # The skill's own root carries the marker; an adopting project does not.
+    assert (sync_backlog.REPO_ROOT / sync_backlog.NOT_A_PROJECT_MARKER).exists()
+    assert main() == 1
+
+
+def test_an_area_label_is_escaped_like_a_title() -> None:
+    """A label reaches the same cell, and may be as attacker-controlled."""
+    assert area_of(issue(1, "x", "a|b")) == r"a\|b"
+
+
+def test_a_title_cannot_render_html() -> None:
+    """`<img onerror=...>` in a title must not become a tag."""
+    rendered = cell('<img src=x onerror="alert(1)">')
+    assert "<" not in rendered
+    assert ">" not in rendered
+    assert rendered == '&lt;img src=x onerror="alert(1)"&gt;'
+
+
+def test_a_title_cannot_become_a_link() -> None:
+    """Otherwise a title could point an agent somewhere it chose."""
+    assert cell("[click here](https://elsewhere.example)") == (
+        r"\[click here\](https://elsewhere.example)"
+    )
+
+
+def test_an_ampersand_is_escaped_once() -> None:
+    """Escaping order matters: `&` first, or the others double-escape."""
+    assert cell("Tom & Jerry") == "Tom &amp; Jerry"
+    assert cell("a < b") == "a &lt; b"
+    assert "&amp;lt;" not in cell("a < b")
+
+
+def test_an_html_comment_marker_is_disarmed_by_the_angle_brackets() -> None:
+    """A title cannot close the generated header."""
+    rendered = cell("Fix <!-- the thing -->")
+    assert "<!--" not in rendered
+    assert "-->" not in rendered
+
+
+def test_the_log_messages_are_rendered_not_lazy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The regression guard for a bug the tests could not see.
+
+    The calls once used `%s` placeholders with lazy arguments. loguru formats
+    with `{}`, so it printed the placeholder literally - and every test passed,
+    because the fakes threw the arguments away. Assert on the *rendered* text.
+    """
+    target = tmp_path / "docs" / "BACKLOG.md"
+    monkeypatch.setattr(sync_backlog, "OUTPUT_PATH", target)
+    monkeypatch.setattr(sync_backlog, "NOT_A_PROJECT_MARKER", None)
+    monkeypatch.setattr(sync_backlog, "fetch_issues", lambda: [issue(1, "a thing")])
+
+    written: list[str] = []
+    monkeypatch.setattr(sync_backlog.logger, "info", written.append)
+    assert main() == 0
+
+    assert written, "main must report what it did"
+    message = written[0]
+    assert "%s" not in message and "{}" not in message
+    assert "1 item(s)" in message
+    assert str(target) in message
