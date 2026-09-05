@@ -135,6 +135,8 @@ Four questions have no default. Ask them (see `references/decisions.md` for the 
    `README.md`, relative-link depths. Then grep for the old paths repo-wide.
 6. Rewrite the agent instructions file (see below).
 7. Drop the allowlist. Write ADRs for the choices just made.
+8. Write `.docs-taxonomy/manifest.yml`, recording the commit this install came from
+   (`references/versioning.md`) — the only way a later update knows what changed upstream.
 
 ### 4. Extract the narratives
 
@@ -166,6 +168,8 @@ Do **not** scaffold four empty folders. Create:
 
 Folders appear when their first doc does. `journal/decisions/` is worth creating early — a
 project makes decisions before it has explanations.
+
+5. `.docs-taxonomy/manifest.yml` (see Brownfield step 8, above).
 
 ## The gate
 
@@ -326,6 +330,7 @@ be able to follow the format.
 | `references/decisions.md` | The four questions to ask the owner, with trade-offs. |
 | `references/pitfalls.md` | **Read before building the gate.** Mistakes with real cost. |
 | `references/backlog.md` | The one question that decides the mirror, the Action that refreshes it, and the branch-protection trap. |
+| `references/versioning.md` | The `.docs-taxonomy/manifest.yml` this skill writes on install, and how to diff against it later. |
 | `references/templates/README.md` | Index of the templates, and where each one lands. |
 | `references/templates/` | `docs-readme.md`, `conventions-documentation.md`, `solutions-readme.md`, `decisions-readme.md`, `agents-section.md`, `frontmatter.md` |
 | `scripts/check_docs.py` | The gate. Copy in, edit the CONFIGURATION block only. |
