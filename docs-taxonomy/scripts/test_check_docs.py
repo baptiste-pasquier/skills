@@ -226,7 +226,7 @@ def test_an_adr_must_be_numbered(valid: Tree) -> None:
 def test_frontmatter_is_required(valid: Tree) -> None:
     """A maintained doc with no frontmatter fails."""
     valid.write("reference/a-contract.md", "# A contract\n")
-    assert "missing or unparseable YAML frontmatter" in valid.failures()
+    assert "missing or unparseable frontmatter" in valid.failures()
 
 
 @pytest.mark.parametrize("key", cd.REQUIRED_KEYS)
@@ -253,7 +253,7 @@ def test_an_invalid_status_fails(valid: Tree) -> None:
 
 
 def test_a_yaml_boolean_status_fails(valid: Tree) -> None:
-    """`status: no` parses to False, which a truthiness test lets through."""
+    """`status: no` parses to False, which a truthiness test would let through."""
     valid.write("reference/a-contract.md", frontmatter("reference", status="no") + "\n")
     assert "invalid status" in valid.failures()
 
@@ -279,8 +279,8 @@ def test_an_unexpired_doc_raises_nothing() -> None:
     assert cd.check_expiry(Path("x.md"), TOMORROW) == []
 
 
-def test_a_yaml_timestamp_expiry_does_not_crash() -> None:
-    """YAML parses `2027-03-02 00:00` as a datetime, which subclasses date."""
+def test_a_timestamp_expiry_does_not_crash() -> None:
+    """`datetime` subclasses `date`, so a naive isinstance guard would misfire."""
     stamp = dt.datetime.combine(TOMORROW, dt.time(0, 0))
     assert cd.check_expiry(Path("x.md"), stamp) == []
 
@@ -289,6 +289,46 @@ def test_a_non_date_expiry_is_reported() -> None:
     """A string that is not a date is a schema error, not a crash."""
     problems = cd.check_expiry(Path("x.md"), "soon")
     assert "not an ISO date" in problems[0].message
+
+
+def test_a_calendar_invalid_date_is_reported_not_crashed() -> None:
+    """`2024-13-01` matches the date shape but is not a real day - no traceback."""
+    assert cd._parse_frontmatter("stale_after: 2024-13-01") == {
+        "stale_after": "2024-13-01"
+    }
+
+
+def test_an_inline_comment_does_not_corrupt_the_value() -> None:
+    """The templates document fields with a trailing `# ...` comment."""
+    assert cd._parse_frontmatter(
+        "type: reference   # must equal the parent folder"
+    ) == {"type": "reference"}
+    assert cd._parse_frontmatter("audience: [human, agent]  # human | agent") == {
+        "audience": ["human", "agent"]
+    }
+
+
+def test_a_quoted_hash_is_not_treated_as_a_comment() -> None:
+    """A `#` inside quotes is part of the value, not a comment marker."""
+    assert cd._parse_frontmatter('title: "Ticket #123: fix thing"') == {
+        "title": "Ticket #123: fix thing"
+    }
+
+
+def test_frontmatter_with_inline_comments_still_validates(valid: Tree) -> None:
+    """End to end: the documented comment style must not fail a valid doc."""
+    valid.write(
+        "reference/a-contract.md",
+        "---\n"
+        "title: A doc\n"
+        "type: reference   # must equal the parent folder\n"
+        "audience: [agent]   # human | agent\n"
+        "status: stable   # draft | stable | deprecated\n"
+        f"stale_after: {TOMORROW.isoformat()}   # absolute expiry\n"
+        "---\n\n# A contract\n",
+    )
+    failures, _ = valid.run()
+    assert failures == []
 
 
 # --------------------------------------------------------------------------
@@ -782,7 +822,7 @@ HOSTILE_EXPECTATIONS = {
     "loose file at the root": "a .txt at the docs root",
     "unknown folder": "a folder outside the taxonomy",
     "missing `title`": "an empty frontmatter value",
-    "invalid status": "a YAML-boolean status",
+    "invalid status": "a boolean-coerced status",
     "does not match its folder": "a type/folder mismatch",
     "broken link": "a link that does not resolve",
     "broken anchor": "a fragment that does not resolve",

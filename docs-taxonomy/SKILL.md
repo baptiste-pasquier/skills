@@ -173,7 +173,8 @@ project makes decisions before it has explanations.
 
 ## The gate
 
-`scripts/check_docs.py` is a single file needing only PyYAML. Copy it and its test into the
+`scripts/check_docs.py` is a single file with no third-party dependency - it parses
+frontmatter itself, stdlib only. Copy it and its test into the
 project, edit the CONFIGURATION block, wire it two ways: a pre-commit hook **and** a test,
 so CI fails on a bad merge even when hooks were skipped.
 

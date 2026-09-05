@@ -32,8 +32,14 @@ and the FILLER openers their own conventions doc names.
 Do NOT add a hard size cap, and do NOT fail on `stale_after`. See the skill's
 references/pitfalls.md for what those cost.
 
-Requires PyYAML. If the project has no Python runtime, port the rules rather
-than adding one - the rule set matters, this implementation does not.
+This file has no third-party dependency. Frontmatter is parsed by
+`_parse_frontmatter` below - a stdlib-only parser for the flat `key: value`
+(plus simple `[a, b]` lists) frontmatter every template in this skill actually
+uses. It is not a YAML parser: a nested mapping or a block scalar will not
+round-trip. If a project's frontmatter ever needs that, switch to PyYAML and
+drop the function - do not extend it into one. If the project has no Python
+runtime at all, port the rules rather than adding one - the rule set matters,
+this implementation does not.
 
 Two lint pragmas are the host project's business, not this file's: the `noqa:
 T201` comments matter only where `flake8-print` is enabled, and `date.today()`
@@ -51,8 +57,6 @@ import sys
 import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
-
-import yaml
 
 # ============================== CONFIGURATION ==============================
 
@@ -235,8 +239,72 @@ def is_allowlisted(path: Path) -> bool:
     return any(fnmatch.fnmatch(rel, pattern) for pattern in ALLOWLIST)
 
 
+def _strip_inline_comment(value: str) -> str:
+    """Strip a trailing `# comment`, honoring quotes so a quoted `#` survives.
+
+    YAML only starts a comment at a `#` preceded by whitespace (or the start
+    of the value); a quoted string keeps its `#` regardless. The templates in
+    this skill document fields with trailing `# ...` comments (see
+    `references/templates/frontmatter.md`), so this has to be handled rather
+    than left to corrupt the value.
+    """
+    quote: str | None = None
+    for index, char in enumerate(value):
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in "\"'":
+            quote = char
+        elif char == "#" and (index == 0 or value[index - 1] in " \t"):
+            return value[:index]
+    return value
+
+
+def _parse_scalar(value: str) -> object:
+    """Parse one YAML-ish scalar: quoted string, flow list, date, bool, bare word."""
+    value = _strip_inline_comment(value.strip()).strip()
+    if value == "" or value in ("~", "null", "Null", "NULL"):
+        return None
+    if value.startswith("[") and value.endswith("]"):
+        inner = value[1:-1].strip()
+        if not inner:
+            return []
+        return [_parse_scalar(item) for item in inner.split(",")]
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", value):
+        try:
+            return dt.date.fromisoformat(value)
+        except ValueError:
+            return value  # shape-valid but calendar-invalid: report, don't crash
+    if value.lower() in ("true", "yes"):
+        return True
+    if value.lower() in ("false", "no"):
+        return False
+    return value
+
+
+def _parse_frontmatter(raw: str) -> dict | None:
+    """Parse flat `key: value` frontmatter without a YAML dependency.
+
+    Handles exactly what this skill's templates use: scalar values, quoted
+    strings, dates, booleans and single-line `[a, b]` lists. A line that looks
+    nested (indented, or a `- item` list entry) is not supported and is
+    skipped rather than mis-parsed, since no template here relies on it.
+    """
+    result: dict[str, object] = {}
+    for line in raw.splitlines():
+        if not line.strip() or line.startswith("#") or line[0] in " \t-":
+            continue
+        key, sep, value = line.partition(":")
+        if not sep:
+            continue
+        result[key.strip()] = _parse_scalar(value)
+    return result or None
+
+
 def split_frontmatter(text: str) -> tuple[dict | None, str]:
-    """Return the parsed YAML frontmatter and the body that follows it."""
+    """Return the parsed frontmatter and the body that follows it."""
     if not text.startswith("---\n"):
         return None, text
     end = text.find("\n---\n", 3)
@@ -244,11 +312,7 @@ def split_frontmatter(text: str) -> tuple[dict | None, str]:
         return None, text
     raw = text[4:end]
     body = text[end + 5 :]
-    try:
-        parsed = yaml.safe_load(raw)
-    except yaml.YAMLError:
-        return None, body
-    return (parsed if isinstance(parsed, dict) else None), body
+    return _parse_frontmatter(raw), body
 
 
 FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,})")
@@ -319,7 +383,7 @@ def missing(meta: dict, key: str) -> bool:
 def check_frontmatter(path: Path, meta: dict | None, folder: str) -> list[Problem]:
     """Check a maintained doc's frontmatter against the documented schema."""
     if meta is None:
-        return [Problem(path, "missing or unparseable YAML frontmatter")]
+        return [Problem(path, "missing or unparseable frontmatter")]
     problems = [
         Problem(path, f"frontmatter missing `{key}`")
         for key in REQUIRED_KEYS
@@ -351,11 +415,18 @@ def check_enums(path: Path, meta: dict) -> list[Problem]:
 
 
 def check_expiry(path: Path, expiry: object) -> list[Problem]:
-    """Check that `stale_after` is an ISO date still in the future."""
+    """Check that `stale_after` is an ISO date still in the future.
+
+    `_parse_scalar` only ever produces a bare `dt.date` (it has no `YYYY-MM-DD
+    HH:MM` rule), but `datetime` subclasses `date`, so a caller that passes one
+    directly - or a future value source that does parse timestamps - must not
+    trip the `isinstance(expiry, dt.date)` guard below into comparing a
+    `datetime` to a `date` and raising `TypeError`.
+    """
     if expiry is None:
         return []
     if isinstance(expiry, dt.datetime):
-        expiry = expiry.date()  # YAML parses `2027-03-02 00:00` as a datetime
+        expiry = expiry.date()
     elif not isinstance(expiry, dt.date):
         return [Problem(path, "`stale_after` is not an ISO date")]
     if expiry < dt.date.today():
