@@ -57,6 +57,23 @@ reader needs in order to work on it, so it stays inline.}}
 The test: **would a reader who never saw the bug still need this to work on the code?** Yes
 means it is explanation. No means it is a journal entry.
 
+### A plugin's artifacts land in the journal
+
+{{Delete this section if no artifact-writing plugin is installed.}}
+
+A spec, a plan or a retrospective written by a plugin is a dated record, so it goes under
+[`../journal/`](../journal/) and nowhere else — `journal/specs/` for an approved design,
+`journal/plans/` for an implementation plan. The redirect is written in the agent
+instructions file, which outranks a plugin skill's own hardcoded path.
+
+Only the directory is ours. The artifact keeps the plugin's filename and frontmatter, and
+nobody edits it afterwards: it is a record.
+
+One rule the artifact must follow, because CI fails on it: **a path to a repo file is a
+backticked path, not a markdown link**, unless it resolves from the artifact's own folder. A
+plugin writes those links relative to the directory being worked on, and the link check
+reads journal entries too. A plan names its spec as `../specs/<file>.md`.
+
 ### Never write a backlog
 
 No TODO section, no "future work", no "not yet implemented" list anywhere in `docs/`, and

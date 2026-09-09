@@ -81,11 +81,15 @@ Every maintained doc appears here. A doc missing from this list fails CI.
   An accepted decision is never edited
 - [`solutions/`](journal/solutions/) — what broke, what was tried, what the measurement
   said. Read the relevant category before implementing a fix
-- {{[`plans/`](journal/plans/) — shipped implementation plans, kept for provenance}}
-- {{[`ideation/`](journal/ideation/) — requirements exploration that fed a plan}}
+- {{[`ideation/`](journal/ideation/) — exploration that fed a spec or a plan}}
+- {{[`specs/`](journal/specs/) — the approved design a plan implements}}
+- {{[`plans/`](journal/plans/) — implementation plans, kept for provenance}}
 
 Templates: [`solutions/README.md`](journal/solutions/README.md),
 [`decisions/README.md`](journal/decisions/README.md).
+
+{{A plugin's artifacts land in these categories and nowhere else.}}
+{{Each keeps its own filename and frontmatter; only the directory is ours.}}
 
 ## Not in this tree
 

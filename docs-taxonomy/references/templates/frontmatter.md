@@ -19,11 +19,17 @@ single most important field.
 date has to be remembered, an expiry announces itself. **Stagger the dates by folder** — all
 docs sharing one date means one day where everything warns at once.
 
-## `journal/solutions|plans|ideation/`
+## `journal/solutions|specs|plans|ideation/`
 
 Keep whatever schema the project's artifact writer already uses (the compound-engineering
 `ce-compound` schema, if that plugin is installed). Do not impose a second one — the plugin
 will keep writing its own.
+
+A `superpowers` spec or plan carries **no** frontmatter of this schema, and needs none: the
+gate asks a journal entry for no frontmatter at all. What it does ask of one is a `.md`
+extension, a kebab-case filename (`NNNN-...` in `decisions/`), a resolvable link, its
+language, no unreplaced `{{...}}`, and — if it declares a `category` — that the category be
+its folder. The last three are the ones a pasted artifact can trip on.
 
 ## `journal/decisions/`
 

@@ -156,6 +156,44 @@ def test_an_unknown_folder_fails(valid: Tree) -> None:
     assert "unknown folder" in valid.failures()
 
 
+def test_a_plugins_own_docs_folder_fails(valid: Tree) -> None:
+    """An artifact writer's default root is an unknown folder like any other.
+
+    This is what makes the redirect in the agent instructions file enforceable
+    rather than advisory: a plan left in `docs/superpowers/plans/` fails.
+    """
+    valid.write("superpowers/plans/2026-09-09-a-feature.md", "# A feature\n")
+    assert "unknown folder" in valid.failures()
+
+
+def test_a_redirected_plugin_artifact_in_the_journal_passes(valid: Tree) -> None:
+    """A journal category is open-ended, so redirecting costs no configuration.
+
+    A spec and a plan written by an artifact-writing plugin keep the plugin's own
+    filename and carry no frontmatter of this taxonomy's schema; only the
+    directory changes. Pinned as a test because the whole compatibility claim
+    rests on it.
+    """
+    valid.write("journal/specs/2026-09-09-a-topic-design.md", "# A topic\n")
+    valid.write("journal/plans/2026-09-09-a-feature.md", "# A feature\n")
+    failures, _ = valid.run()
+    assert failures == []
+
+
+def test_a_plans_link_relative_to_elsewhere_fails(valid: Tree) -> None:
+    """The one thing a redirected plan does break, so it is stated as a rule.
+
+    A plugin's plans cite repo files with links written relative to whatever
+    directory the plan is about, which resolve from nowhere inside the journal.
+    The agents section therefore requires a backticked path there, not a link.
+    """
+    valid.write(
+        "journal/plans/2026-09-09-a-feature.md",
+        "# A feature\n\nSee [code-reviewer.md](../requesting-code-review/x.md).\n",
+    )
+    assert "broken link" in valid.failures()
+
+
 def test_a_loose_file_at_the_docs_root_fails(valid: Tree) -> None:
     """Only the index and the backlog mirror sit at the root."""
     valid.write("notes.md", "# Notes\n")

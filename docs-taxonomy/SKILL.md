@@ -20,6 +20,7 @@ already failed.
 | `docs/` exists and has drifted | **Brownfield**, below. Diagnose before touching anything. |
 | New project, or `docs/` is 1-2 files | **Greenfield**, below. Create almost nothing. |
 | "Where does this paragraph go?" | [The routing rule](#the-routing-rule). Answer, do not restructure. |
+| A plugin writes its own folders under `docs/` (superpowers, compound-engineering) | [Artifact-writing plugins](#artifact-writing-plugins). One redirect, no gate change. |
 | A gate is misfiring | `references/pitfalls.md` |
 
 ## The design, in one screen
@@ -45,8 +46,9 @@ docs/
 └── journal/           DATED. Append-only. Never revised, never cited as truth.
     ├── decisions/     one architectural choice per entry (MADR)
     ├── solutions/     what broke, what was tried, what was measured
-    ├── plans/         implementation plans, kept for provenance
-    └── ideation/      requirements exploration that fed a plan
+    ├── ideation/      requirements exploration that fed a spec or a plan
+    ├── specs/         the approved design a plan implements
+    └── plans/         implementation plans, kept for provenance
 ```
 
 **`journal/` is the load-bearing idea.** It is where the append reflex goes to be harmless
@@ -133,7 +135,8 @@ Four questions have no default. Ask them (see `references/decisions.md` for the 
    of the work and the whole point.
 5. Fix every reference: code docstrings, generator output paths, tests, CI, the root
    `README.md`, relative-link depths. Then grep for the old paths repo-wide.
-6. Rewrite the agent instructions file (see below).
+6. Rewrite the agent instructions file, and repoint every artifact-writing plugin in the
+   same commit (both below). A plugin left pointing at its own root recreates it.
 7. Drop the allowlist. Write ADRs for the choices just made.
 8. Write `.docs-taxonomy/manifest.yml`, recording the commit this install came from
    (`references/versioning.md`) — the only way a later update knows what changed upstream.
@@ -164,7 +167,8 @@ Do **not** scaffold four empty folders. Create:
 1. `docs/README.md` — the routing rule and an empty index. This alone prevents most drift.
 2. `conventions/documentation.md` — the rules.
 3. The gate (`scripts/check_docs.py` + pre-commit hook + a test).
-4. The agent instructions section.
+4. The agent instructions section, including the redirect for any artifact-writing
+   plugin.
 
 Folders appear when their first doc does. `journal/decisions/` is worth creating early — a
 project makes decisions before it has explanations.
@@ -190,7 +194,7 @@ cp "$SKILL_DIR/scripts/test_check_backlog_staging.py" tests/unit_tests/scripts/
 ```
 
 The test imports the gate either as `scripts.check_docs` or as a sibling file, so both
-layouts work. Run it once from the project root before wiring anything: 107 tests, no
+layouts work. Run it once from the project root before wiring anything: 117 tests, no
 project `docs/` needed — every case builds its own tree.
 
 Adapting means **editing a value in the CONFIGURATION block, never the code below it**.
@@ -308,16 +312,55 @@ read it.
 it governs, and the gate checks it. `conventions/` will hold rules for unrelated things —
 docs prose, prompt text, commit messages — and a reader must never have to infer which.
 
-## Compound-engineering and other artifact writers
+## Artifact-writing plugins
 
-If the project uses the compound-engineering plugin, it writes up to nine artifact folder
-names (`solutions`, `plans`, `ideation`, `explainers`, `specs`, `personas`,
-`pulse-reports`, `dogfood-reports`, `feedback-sweep`). At the root of `docs/` they swamp any
-taxonomy.
+A plugin that writes dated artifacts is the taxonomy's largest single source of files, and
+every one of those artifacts is a journal entry. Point it at `docs/journal/` — **the
+directory is the only thing that changes.** Keep the plugin's own filenames and its own
+frontmatter schema: impose a second schema and the plugin simply keeps writing its own.
 
-Set `docs_root: docs/journal` in `.compound-engineering/config.yaml`. A configured root
-becomes the sole location it reads and writes. This is the single setting that unifies those
-artifacts with the taxonomy.
+Two mechanisms, and the plugin decides which one you get.
+
+**A configured root — compound-engineering.** It writes up to nine artifact folder names
+(`solutions`, `plans`, `ideation`, `explainers`, `specs`, `personas`, `pulse-reports`,
+`dogfood-reports`, `feedback-sweep`), which at the root of `docs/` swamp any taxonomy. Set
+`docs_root: docs/journal` in `.compound-engineering/config.yaml`; a configured root becomes
+the sole location it reads and writes. One setting, done.
+
+**A hardcoded path — superpowers.** Its paths live in the skill text, and there is no config
+file:
+
+| Skill | Writes to | Redirect to |
+| --- | --- | --- |
+| `superpowers:brainstorming` | `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` | `docs/journal/specs/` |
+| `superpowers:writing-plans` | `docs/superpowers/plans/YYYY-MM-DD-<feature>.md` | `docs/journal/plans/` |
+
+So the redirect goes in the **agent instructions file** — which is the supported lever, not
+a hack: `superpowers:using-superpowers` states that `CLAUDE.md` / `AGENTS.md` take
+precedence over a skill's own instructions. `references/templates/agents-section.md` has the
+block to paste.
+
+**The gate needs no new configuration.** A journal category is open-ended, so
+`journal/specs/` is accepted the moment a file lands in it, with or without frontmatter —
+and `docs/superpowers/` fails as an unknown folder, which is what makes the redirect binding
+instead of advisory. Both directions are pinned by tests in `scripts/test_check_docs.py`.
+
+**The one thing that actually breaks: links inside a plan.** The gate resolves every
+relative link in a journal entry, fenced or not, and a superpowers plan cites repo files
+with markdown links written relative to *the directory being worked on*
+(`[code-reviewer.md](../requesting-code-review/code-reviewer.md)`), which resolve from
+nowhere under `docs/journal/plans/`. So the convention the agents file must carry is: **in a
+plan or a spec, a path to a repo file is a backticked path, not a markdown link**, unless it
+resolves from the artifact's own folder — a plan names its spec as `../specs/<file>.md`, not
+as the absolute `docs/…` form the plugin's examples use. Fix it at write time, and when
+moving old plans in, fix their links in the same commit. **Do not reach for `ALLOWLIST`
+here**: the cause is permanent, so that entry could never be emptied — it would be the
+permanent exemption `references/pitfalls.md` warns about, and it would take that folder's
+naming and category checks down with it.
+
+**And leave the workspace alone.** `.superpowers/sdd/<plan-basename>/` is a scratch
+directory outside `docs/` that the plugin deletes when the final review is clean: it is not
+documentation, so it belongs neither in the journal nor in the gate's reach.
 
 Also ship **in-repo templates** for `journal/solutions/README.md` and
 `journal/decisions/README.md`. An ordinary session does not load the plugin and must still
@@ -335,9 +378,9 @@ be able to follow the format.
 | `references/templates/README.md` | Index of the templates, and where each one lands. |
 | `references/templates/` | `docs-readme.md`, `conventions-documentation.md`, `solutions-readme.md`, `decisions-readme.md`, `agents-section.md`, `frontmatter.md` |
 | `scripts/check_docs.py` | The gate. Copy in, edit the CONFIGURATION block only. |
-| `scripts/test_check_docs.py` | Its tests: 107 cases, every rule in the failing direction. |
+| `scripts/test_check_docs.py` | Its tests: 117 cases, every rule in the failing direction. |
 | `scripts/sync_backlog.py` | The backlog mirror generator. **Only** if an Action refreshes it. |
-| `scripts/test_sync_backlog.py` | Its tests: 23 cases, including hostile issue titles. |
+| `scripts/test_sync_backlog.py` | Its tests: 24 cases, including hostile issue titles. |
 | `scripts/check_backlog_staging.sh` | Pre-commit hook rejecting a hand edit to the mirror. Ships with the generator or not at all. |
 | `scripts/test_check_backlog_staging.py` | Its tests: 9 cases, every exit path, on a fake `PATH`. |
 

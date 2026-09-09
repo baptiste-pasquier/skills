@@ -34,12 +34,22 @@ that were deleted.
 
 | Option | Trade-off |
 | --- | --- |
-| **Move to `journal/plans/` with `status: shipped`** | Recommended. Provenance stays navigable and explicitly marked as a record, so its stale content is harmless. Costs volume in the tree. |
+| **Move to `journal/plans/` with `status: shipped`** — an approved design to `journal/specs/`, an exploration to `journal/ideation/` | Recommended. Provenance stays navigable and explicitly marked as a record, so its stale content is harmless. Costs volume in the tree. |
 | **Delete** | `docs/` shrinks immediately; git keeps the content. Loses browsable provenance and the `origin:` chain between documents. |
 | **Archive outside the repo** | Cleanest tree, but a coding agent loses all provenance — and any artifact-writing plugin will just recreate the folders. |
 
 **Do not "fix" the stale content in a record.** A record is a record. State that rule in
 `conventions/documentation.md` instead, and repoint only dead metadata (an `origin:` path).
+
+**Moving a plugin's artifact breaks its links.** These documents cite repo files with paths
+relative to their old folder, and the gate resolves every link in a journal entry — so
+budget for rewriting them in the move commit, or the restructure lands red on dozens of
+broken links.
+
+**Whatever the answer, repoint the writer in the same PR.** Move `docs/superpowers/specs/`
+without redirecting `superpowers:brainstorming` and the next session recreates the folder —
+where the gate now fails it, in a PR whose author did nothing wrong. The skill's
+*Artifact-writing plugins* section has the redirect for each mechanism.
 
 ## 4. Backlog
 

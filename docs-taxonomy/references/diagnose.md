@@ -134,12 +134,33 @@ done
 ## 10. Who else writes into docs/
 
 ```bash
-ls -d .compound-engineering .cursor .claude 2>/dev/null
+ls -d .compound-engineering .superpowers .cursor .claude 2>/dev/null
 grep -rn "docs/" .pre-commit-config.yaml .github/workflows/ Makefile 2>/dev/null | head -20
 ```
 
 Find the generators and the agent config **before** moving anything. A generated output
 path, a docstring, a test assertion and a CI step will all break on a rename, silently.
+
+Then count what the artifact-writing plugins have already produced — it is routinely the
+largest share of `docs/`, and it keeps arriving whatever you do to the tree:
+
+```bash
+find docs -maxdepth 2 -type d \
+     \( -name superpowers -o -name specs -o -name plans -o -name ideation \) 2>/dev/null
+git log --diff-filter=A --format= --name-only -- 'docs/**' |
+  awk -F/ 'NF>1 {print $2}' | sort | uniq -c | sort -rn | head
+```
+
+**Then ask the owner which plugins their sessions load.** An installed plugin that has not
+written yet leaves no trace in the repo — `.superpowers/` is a gitignored scratch directory,
+and `docs/superpowers/` only exists once a brainstorm has run. Diagnosing "no artifact
+writer" from an empty repo is how the first spec after the restructure lands in
+`docs/superpowers/specs/` and reddens the gate.
+
+A plugin with a config file (compound-engineering) is repointed by one setting. One with the
+path in its skill text (superpowers writes `docs/superpowers/specs/` and
+`docs/superpowers/plans/`) is repointed only from the agent instructions file — see the
+skill's *Artifact-writing plugins* section.
 
 ## 11. Existing gates
 

@@ -36,6 +36,32 @@ Four extensions, for text that is not about the product:
 A maintained doc states the rule **once** and links the journal entry for the evidence. It
 does not retell the story.
 
+### Where a plugin's artifacts go
+
+<!-- Delete this section if no artifact-writing plugin is installed, and delete any row
+     whose plugin is not installed. -->
+
+Every dated artifact a plugin writes is a journal entry. **The paths below override the ones
+the plugins' own skills name** — an instruction in this file takes precedence over a skill's.
+
+| Running | Do not write to | Write to |
+| --- | --- | --- |
+| `superpowers:brainstorming` | `docs/superpowers/specs/` | `docs/journal/specs/` |
+| `superpowers:writing-plans` | `docs/superpowers/plans/` | `docs/journal/plans/` |
+| a compound-engineering artifact skill | `docs/<artifact-name>/` | under `docs/journal/`, per `docs_root` in `.compound-engineering/config.yaml` |
+
+**Only the directory changes.** Keep the plugin's own filename
+(`YYYY-MM-DD-<topic>-design.md`) and its own frontmatter — a second schema means the plugin
+keeps writing its own anyway. `docs/superpowers/` fails the gate as an unknown folder.
+
+**In a plan or a spec, cite a repo file as a backticked path, not a markdown link**, unless
+the path resolves from the artifact's own folder: the link check reads journal entries too,
+and the plugin's examples link paths relative to the directory being worked on. A plan names
+its spec as `../specs/<file>.md` — never as an absolute `docs/…` link.
+
+A plan or a spec is a dated record of intent, so the no-backlog rule below does not reach
+it — see that rule for what stays.
+
 ### Rules that are enforced
 
 `scripts/check_docs.py` runs in pre-commit and CI. These fail:
@@ -49,15 +75,16 @@ does not retell the story.
   **warns** there rather than failing. A full write-up with symptoms and measurements still
   belongs in a journal entry, linked. `docs/journal/` is exempt: narrating what failed is
   its purpose.
-- **Never add a backlog, TODO or "future work" section under `docs/`.** {{PICK ONE — with a
-  mirror: `docs/BACKLOG.md` mirrors the issues labelled `backlog` and a GitHub Action
-  refreshes it; never hand-edit it. Without one: unbuilt work lives in the issue tracker and
-  nowhere else — `gh issue list --label backlog` to read it, `gh issue create --label
-  backlog` to add an item.}} **Link the issue** from the doc rather than describing the
+- **Never add a backlog, TODO or "future work" section to a maintained doc.**
+  {{PICK ONE — with a mirror: `docs/BACKLOG.md` mirrors the issues labelled `backlog` and a
+  GitHub Action refreshes it; never hand-edit it. Without one: unbuilt work lives in the
+  issue tracker and nowhere else — `gh issue list --label backlog` to read it, `gh issue
+  create --label backlog` to add an item.}} **Link the issue** rather than describing the
   missing work. The gate fails on a section *headed* `TODO`, `Backlog`, `Future work`,
   `Roadmap` or `Open questions`; a single sentence asserting unbuilt work gets past it, so
   link instead of writing the sentence. A `TODO` comment in a source file is fine, and a doc
-  may point at one; a *list* of unbuilt work in prose is not.
+  may point at one; a *list* of unbuilt work in prose is not. `docs/journal/` is exempt, so a
+  plan's own `Open Questions` section stays where the plugin wrote it.
 - **Every maintained doc carries frontmatter** with `title`, `type` (equal to its folder
   name), `audience`, `status`, `stale_after`, and appears in `docs/README.md`. A key present
   but empty counts as missing. A passed `stale_after` **warns** rather than fails, so a
