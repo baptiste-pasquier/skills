@@ -31,7 +31,7 @@ Four extensions, for text that is not about the product:
 | tells a future writer or agent what to do | `docs/conventions/` |
 | recounts what was tried, failed, or was measured | `docs/journal/solutions/` |
 | records a choice between options | `docs/journal/decisions/` |
-| names something not built yet | {{an issue labelled `backlog`}} |
+| names something not built yet | {{an issue labelled `backlog` / an issue, classified per [`docs/conventions/issues.md`](docs/conventions/issues.md)}} |
 
 A maintained doc states the rule **once** and links the journal entry for the evidence. It
 does not retell the story.
@@ -76,15 +76,15 @@ it — see that rule for what stays.
   belongs in a journal entry, linked. `docs/journal/` is exempt: narrating what failed is
   its purpose.
 - **Never add a backlog, TODO or "future work" section to a maintained doc.**
-  {{PICK ONE — with a mirror: `docs/BACKLOG.md` mirrors the issues labelled `backlog` and a
-  GitHub Action refreshes it; never hand-edit it. Without one: unbuilt work lives in the
-  issue tracker and nowhere else — `gh issue list --label backlog` to read it, `gh issue
-  create --label backlog` to add an item.}} **Link the issue** rather than describing the
-  missing work. The gate fails on a section *headed* `TODO`, `Backlog`, `Future work`,
-  `Roadmap` or `Open questions`; a single sentence asserting unbuilt work gets past it, so
-  link instead of writing the sentence. A `TODO` comment in a source file is fine, and a doc
-  may point at one; a *list* of unbuilt work in prose is not. `docs/journal/` is exempt, so a
-  plan's own `Open Questions` section stays where the plugin wrote it.
+  Unbuilt work lives in the issue tracker and nowhere else — {{PICK ONE — `gh issue list
+  --label backlog --limit 200` to read it, `gh issue create --label backlog` to add an item /
+  opened and read per [`docs/conventions/issues.md`](docs/conventions/issues.md#commands)}}.
+  **Link the issue** rather than describing the missing work. The gate fails on a section
+  *headed* `TODO`, `Backlog`, `Future work`, `Roadmap` or `Open questions`; a single
+  sentence asserting unbuilt work gets past it, so link instead of writing the sentence. A
+  `TODO` comment in a source file is fine, and a doc may point at one; a *list* of unbuilt
+  work in prose is not. `docs/journal/` is exempt, so a plan's own `Open Questions` section
+  stays where the plugin wrote it.
 - **Every maintained doc carries frontmatter** with `title`, `type` (equal to its folder
   name), `audience`, `status`, `stale_after`, and appears in `docs/README.md`. A key present
   but empty counts as missing. A passed `stale_after` **warns** rather than fails, so a
@@ -123,6 +123,7 @@ it — see that rule for what stays.
 | {{conversation flow / core behaviour}} | {{`docs/explanation/<file>.md`}} |
 | {{deployment, CI/CD}} | {{`docs/how-to/<file>.md`}} |
 | user-facing behaviour, setup, local workflow | `README.md` |
+| {{an `area:*` label, or the issue types or priorities in use}} | {{`docs/conventions/issues.md`}} |
 | what an agent must always know | this file |
 
 <!-- Point at a DIRECTORY per trigger, never "append to this file". -->

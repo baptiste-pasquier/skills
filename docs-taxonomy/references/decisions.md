@@ -51,22 +51,19 @@ without redirecting `superpowers:brainstorming` and the next session recreates t
 where the gate now fails it, in a PR whose author did nothing wrong. The skill's
 *Artifact-writing plugins* section has the redirect for each mechanism.
 
-## 4. Backlog
+## 4. Issues
 
-The tracker is the source of truth either way. What you are asking is whether a mirror in
-`docs/BACKLOG.md` earns its refresh mechanism, and **one fact decides it: can a workflow
-push to the default branch?**
+The tracker holds unbuilt work either way, with no copy under `docs/`. What you are asking
+is how much structure an issue carries.
 
 | Option | Cost | Suits |
 | --- | --- | --- |
-| **Mirror, refreshed by a GitHub Action** | A generator, a pre-commit hook, a workflow with `contents: write`, a header gate rule, a title-escaping contract | A repo whose default branch accepts a bot push. Preferred where possible: an agent sees unbuilt work with no tool call, and nobody has to remember anything. |
-| **Tracker only, `gh issue list` in the agents file** | An agent with no `gh` credentials cannot read the backlog at all | **Everything else**, and the simpler answer anywhere. Zero machinery. |
-| **Mirror refreshed by hand, or by a report-only job** | The full apparatus *and* a human who remembers | Nothing. See `backlog.md`. |
-| **Gitignored mirror** | The full apparatus, none of the benefit | Nothing. Argued in `backlog.md`. |
+| **One `backlog` label** | None. `gh issue list --label backlog` is the whole convention | A small backlog one person triages |
+| **Type, area and priority** | A rulebook in `conventions/issues.md`, an ADR, and classifying every open issue once | A backlog of dozens, or agents that must pick the next item and find the code for it |
 
-Ask the owner, then **check the answer** — a protected branch is the common case and people
-forget their own rulesets. `references/backlog.md` has the two `gh api` calls, the workflow
-to ship when a push can land, and the reason report-only is not a fallback.
+Either way, `gh` reads the tracker directly. With the second option, check which variant the
+organisation supports rather than asking — `references/issues.md` has the call and the
+fallback on labels.
 
 ---
 

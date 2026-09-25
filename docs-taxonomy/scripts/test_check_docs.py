@@ -195,7 +195,7 @@ def test_a_plans_link_relative_to_elsewhere_fails(valid: Tree) -> None:
 
 
 def test_a_loose_file_at_the_docs_root_fails(valid: Tree) -> None:
-    """Only the index and the backlog mirror sit at the root."""
+    """Only the index sits at the root."""
     valid.write("notes.md", "# Notes\n")
     assert "loose file at the root" in valid.failures()
 
@@ -714,24 +714,13 @@ def test_a_journal_entry_with_no_category_passes(valid: Tree) -> None:
 
 
 # --------------------------------------------------------------------------
-# The backlog mirror.
+# No backlog file. Unbuilt work lives in the tracker, read with `gh`.
 
 
-def test_a_hand_edited_backlog_fails(valid: Tree) -> None:
-    """A generated file with its header removed was edited by hand."""
+def test_a_backlog_file_at_the_root_fails(valid: Tree) -> None:
+    """A `BACKLOG.md` is a copy of the tracker nobody prunes: a loose root file."""
     valid.write("BACKLOG.md", "# Backlog\n\n- something I typed\n")
-    assert "missing the generated header" in valid.failures()
-
-
-def test_a_generated_backlog_passes(valid: Tree) -> None:
-    """The generated file carries its provenance."""
-    valid.write("BACKLOG.md", cd.GENERATED_BACKLOG_HEADER + " -->\n\n# Backlog\n")
-    assert valid.run()[0] == []
-
-
-def test_no_backlog_file_is_not_a_problem(valid: Tree) -> None:
-    """A project without a mirror is not failed for not having one."""
-    assert valid.run()[0] == []
+    assert "loose file at the root" in valid.failures()
 
 
 # --------------------------------------------------------------------------
@@ -750,38 +739,6 @@ def test_the_language_rule_can_be_switched_off(
         frontmatter("reference") + "\nLe noeud est appele dans le graphe pour cela.\n",
     )
     assert valid.run() == ([], [])
-
-
-def test_switching_the_mirror_off_rejects_the_file_too(
-    valid: Tree, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """One switch, both consequences: no header to check, no file tolerated.
-
-    This asserted `== []` once, which made the half-configured state - the gate
-    no longer checking a mirror it still allows at the root - the *documented*
-    behaviour. A hand-written mirror would have passed forever.
-    """
-    monkeypatch.setattr(cd, "GENERATED_BACKLOG_HEADER", None)
-    valid.write("BACKLOG.md", "# A hand-written backlog\n")
-    assert "loose file at the root" in valid.failures()
-
-
-def test_switching_the_mirror_off_raises_no_type_error(
-    valid: Tree, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """`None.startswith` was the original crash; with no file there is nothing."""
-    monkeypatch.setattr(cd, "GENERATED_BACKLOG_HEADER", None)
-    assert valid.run() == ([], [])
-
-
-def test_the_root_allowlist_cannot_be_set_to_disagree() -> None:
-    """The derivation itself: one setting decides both, so no pair can conflict."""
-    assert cd.BACKLOG_NAME in cd.root_allowed()
-    import unittest.mock
-
-    with unittest.mock.patch.object(cd, "GENERATED_BACKLOG_HEADER", None):
-        assert cd.BACKLOG_NAME not in cd.root_allowed()
-        assert cd.INDEX_NAME in cd.root_allowed()
 
 
 def test_the_size_warning_can_be_switched_off(
@@ -875,7 +832,6 @@ HOSTILE_EXPECTATIONS = {
     "is not its folder": "a journal category naming the old path",
     "symlinked folder": "a symlinked quadrant",
     "unexpected `.txt`": "a non-doc file inside a quadrant",
-    "missing the generated header": "a hand-edited backlog mirror",
 }
 
 
@@ -904,7 +860,6 @@ def hostile(tree: Tree, tmp_path: Path) -> Tree:
         "---\ncategory: docs/solutions/logic\n---\n\n# A lesson\n",
     )
     tree.write("journal/decisions/why-postgres.md", "# Why Postgres\n")
-    tree.write("BACKLOG.md", "# Backlog\n\n- typed by hand\n")
     outside = tmp_path / "outside"
     outside.mkdir()
     (outside / "smuggled.md").write_text("# smuggled\n", encoding="utf-8")
@@ -946,6 +901,7 @@ TEMPLATES = Path(__file__).resolve().parent.parent / "references" / "templates"
 TEMPLATE_DEST = {
     "docs-readme.md": "README.md",
     "conventions-documentation.md": "conventions/documentation.md",
+    "conventions-issues.md": "conventions/issues.md",
     "solutions-readme.md": "journal/solutions/README.md",
     "decisions-readme.md": "journal/decisions/README.md",
 }
@@ -976,20 +932,12 @@ def test_the_shipped_templates_pass_the_gate(tree: Tree) -> None:
     written = tree.docs / "README.md"
     written.write_text(
         written.read_text(encoding="utf-8")
-        + "\n- [conventions/documentation.md](conventions/documentation.md)\n",
+        + "\n- [conventions/documentation.md](conventions/documentation.md)\n"
+        + "- [conventions/issues.md](conventions/issues.md)\n",
         encoding="utf-8",
     )
     failures, _ = tree.run()
     assert failures == []
-
-
-def test_the_tracker_only_configuration_rejects_a_mirror(
-    valid: Tree, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The tracker-only configuration: a `BACKLOG.md` becomes a loose root file."""
-    monkeypatch.setattr(cd, "GENERATED_BACKLOG_HEADER", None)
-    valid.write("BACKLOG.md", "# a mirror nobody refreshes\n")
-    assert "loose file at the root" in valid.failures()
 
 
 def test_an_unresolved_template_placeholder_fails(valid: Tree) -> None:
@@ -997,7 +945,7 @@ def test_an_unresolved_template_placeholder_fails(valid: Tree) -> None:
     valid.write(
         "conventions/writing.md",
         frontmatter("conventions")
-        + "\n**Scope: docs prose.**\n\n{{PICK ONE - with a mirror: ... without: ...}}\n",
+        + "\n**Scope: docs prose.**\n\n{{PICK ONE - a label: ... the full convention: ...}}\n",
     )
     assert "unresolved template placeholder" in valid.failures()
 

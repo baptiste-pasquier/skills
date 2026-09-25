@@ -1,6 +1,6 @@
 ---
 name: docs-taxonomy
-description: Restructure a project's docs/ into a MECE, enforced taxonomy - Diátaxis quadrants plus an append-only journal - so humans and coding agents both have exactly one place to put each paragraph. Use when docs/ has drifted (agents appending paragraphs every PR, nothing ever pruned, retrospectives interleaved with explanation), when setting up docs/ on a new project, when asked to make documentation agent-readable or stop doc sprawl, or when asked where a doc belongs. Ships a diagnosis procedure, file templates, and a CI gate.
+description: Restructure a project's docs/ into a MECE, enforced taxonomy - Diátaxis quadrants plus an append-only journal - so humans and coding agents both have exactly one place to put each paragraph. Use when docs/ has drifted (agents appending paragraphs every PR, nothing ever pruned, retrospectives interleaved with explanation), when setting up docs/ on a new project, when asked to make documentation agent-readable or stop doc sprawl, when asked where a doc belongs, or when asked to set up an issue convention (issue types, area labels, priority). Ships a diagnosis procedure, file templates, and a CI gate.
 ---
 
 # docs-taxonomy
@@ -21,6 +21,7 @@ already failed.
 | New project, or `docs/` is 1-2 files | **Greenfield**, below. Create almost nothing. |
 | "Where does this paragraph go?" | [The routing rule](#the-routing-rule). Answer, do not restructure. |
 | A plugin writes its own folders under `docs/` (superpowers, compound-engineering) | [Artifact-writing plugins](#artifact-writing-plugins). One redirect, no gate change. |
+| Classify issues by type, area and priority, or drop the `backlog` label | `references/issues.md`. Works on a repo that already has the taxonomy. |
 | A gate is misfiring | `references/pitfalls.md` |
 
 ## The design, in one screen
@@ -40,8 +41,6 @@ docs/
 ├── how-to/            HOW to reach a goal.     Numbered steps.
 ├── reference/         WHAT is true.            Tables, contracts. No narrative.
 ├── conventions/       WHAT YOU MUST DO.        Imperative, checkable. Agent-first.
-│
-├── BACKLOG.md         unbuilt work — only if an Action refreshes it (references/backlog.md)
 │
 └── journal/           DATED. Append-only. Never revised, never cited as truth.
     ├── decisions/     one architectural choice per entry (MADR)
@@ -115,11 +114,10 @@ Four questions have no default. Ask them (see `references/decisions.md` for the 
 1. **Language** — one language for all docs, or a stated boundary?
 2. **Scope** — `docs/` only, or also co-located `README.md`s and sub-projects?
 3. **Existing plans/specs** — delete, or move to `journal/` marked shipped?
-4. **Backlog** — a mirror in `docs/BACKLOG.md`, or the tracker only? Decided by one fact:
-   **can a workflow push to the default branch?** Yes → ship the mirror and the Action that
-   refreshes it. No → tracker only, with `gh issue list --label backlog` in the agents file.
-   A mirror nobody refreshes automatically is a cache of one command. Check the answer
-   rather than trusting it — `references/backlog.md` has the `gh api` calls.
+4. **Issues** — one `backlog` label, or a convention classifying every issue by type,
+   area and priority? Either way the tracker is the only home for unbuilt work, read with
+   `gh` — never a copy under `docs/`. `references/issues.md` has the procedure, and the
+   fallback on labels when the organisation has no issue types or `Priority` field.
 
 ### 3. Move, in this order
 
@@ -185,16 +183,10 @@ so CI fails on a bad merge even when hooks were skipped.
 ```bash
 cp "$SKILL_DIR/scripts/check_docs.py"      scripts/check_docs.py
 cp "$SKILL_DIR/scripts/test_check_docs.py" tests/unit_tests/scripts/test_check_docs.py
-
-# Only when a workflow can push to the default branch (see references/backlog.md):
-cp "$SKILL_DIR/scripts/sync_backlog.py"           scripts/sync_backlog.py
-cp "$SKILL_DIR/scripts/test_sync_backlog.py"      tests/unit_tests/scripts/test_sync_backlog.py
-cp "$SKILL_DIR/scripts/check_backlog_staging.sh"  scripts/check_backlog_staging.sh
-cp "$SKILL_DIR/scripts/test_check_backlog_staging.py" tests/unit_tests/scripts/
 ```
 
 The test imports the gate either as `scripts.check_docs` or as a sibling file, so both
-layouts work. Run it once from the project root before wiring anything: 117 tests, no
+layouts work. Run it once from the project root before wiring anything: 110 tests, no
 project `docs/` needed — every case builds its own tree.
 
 Adapting means **editing a value in the CONFIGURATION block, never the code below it**.
@@ -203,7 +195,6 @@ Every switch has an "off" value the test suite exercises:
 | Set this | To get |
 | --- | --- |
 | `SECOND_LANGUAGE_MARKERS = None` | no language rule |
-| `GENERATED_BACKLOG_HEADER = None` | no backlog mirror (tracker only); the root allowlist follows |
 | `PROSE_CAP_DEFAULT = None` | no size warning |
 | `NARRATION_FAILS = ()` | narration left to review |
 | `SCOPE_FOLDER = None` | no `Scope:` line required |
@@ -225,32 +216,6 @@ The pre-commit hook, with the four fields that are not guessable:
 
 `pass_filenames: false` matters: the gate checks the tree as a whole — the index rule needs
 every maintained doc, not the two that happen to be staged.
-
-With a mirror, add its hook too:
-
-```yaml
-      - id: backlog-not-hand-edited
-        name: docs/BACKLOG.md is generated, not hand-edited
-        entry: scripts/check_backlog_staging.sh
-        language: script
-        pass_filenames: false
-        files: ^docs/BACKLOG\.md$
-```
-
-It answers "was this hand-edited?" by regenerating and comparing, not by inspecting what
-else is staged. It passes when the tracker is unreachable — being offline must not block a
-commit — and **fails** on everything else, because a hook that reports every error as
-success is not a gate.
-
-The generated header names a refresh command, so add the target the header promises:
-
-```makefile
-.PHONY: sync-backlog
-sync-backlog:
-	python scripts/sync_backlog.py
-```
-
-Change `REFRESH_COMMAND` in the generator if the project names it differently.
 
 **What must fail:**
 
@@ -300,7 +265,8 @@ That is an instruction to append to a named file. Replace the whole section with
    update `reference/tools.md`; if the change taught you something, add a
    `journal/solutions/` entry — do not narrate it in the reference".
 4. "Before implementing a fix, check `journal/solutions/` for an entry in that area."
-5. "Never write a backlog section under `docs/`" — plus how to read and add an item.
+5. "Never write a backlog section under `docs/`" — plus how to read and add an item
+   (`references/issues.md`).
 
 Then move path-scoped rules **out** of the always-loaded file. In Claude Code,
 `.claude/rules/*.md` with `paths:` frontmatter loads only when a matching file is read —
@@ -373,16 +339,12 @@ be able to follow the format.
 | `references/diagnose.md` | The measurement commands. Run these first, always. |
 | `references/decisions.md` | The four questions to ask the owner, with trade-offs. |
 | `references/pitfalls.md` | **Read before building the gate.** Mistakes with real cost. |
-| `references/backlog.md` | The one question that decides the mirror, the Action that refreshes it, and the branch-protection trap. |
+| `references/issues.md` | Where unbuilt work lives, and the optional issue convention: type, area, priority. |
 | `references/versioning.md` | The `.docs-taxonomy/manifest.yml` this skill writes on install, and how to diff against it later. |
 | `references/templates/README.md` | Index of the templates, and where each one lands. |
-| `references/templates/` | `docs-readme.md`, `conventions-documentation.md`, `solutions-readme.md`, `decisions-readme.md`, `agents-section.md`, `frontmatter.md` |
+| `references/templates/` | `docs-readme.md`, `conventions-documentation.md`, `conventions-issues.md`, `solutions-readme.md`, `decisions-readme.md`, `agents-section.md`, `frontmatter.md` |
 | `scripts/check_docs.py` | The gate. Copy in, edit the CONFIGURATION block only. |
-| `scripts/test_check_docs.py` | Its tests: 117 cases, every rule in the failing direction. |
-| `scripts/sync_backlog.py` | The backlog mirror generator. **Only** if an Action refreshes it. |
-| `scripts/test_sync_backlog.py` | Its tests: 24 cases, including hostile issue titles. |
-| `scripts/check_backlog_staging.sh` | Pre-commit hook rejecting a hand edit to the mirror. Ships with the generator or not at all. |
-| `scripts/test_check_backlog_staging.py` | Its tests: 9 cases, every exit path, on a fake `PATH`. |
+| `scripts/test_check_docs.py` | Its tests: 110 cases, every rule in the failing direction. |
 
 The script here is the canonical copy. Once copied into a project it belongs to that
 project and diverges as its taxonomy does — nothing syncs the two, and nothing should.

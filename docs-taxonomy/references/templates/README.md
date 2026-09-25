@@ -7,6 +7,7 @@ inherited section nobody meant is how the next drift starts.
 | --- | --- |
 | `docs-readme.md` | `docs/README.md` |
 | `conventions-documentation.md` | `docs/conventions/documentation.md` |
+| `conventions-issues.md` | `docs/conventions/issues.md` — only with the issue convention (`references/issues.md`) |
 | `solutions-readme.md` | `docs/journal/solutions/README.md` |
 | `decisions-readme.md` | `docs/journal/decisions/README.md` |
 | `agents-section.md` | the `## Documentation` section of `AGENTS.md` / `CLAUDE.md` |
