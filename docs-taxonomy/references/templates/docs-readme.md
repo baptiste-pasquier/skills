@@ -73,6 +73,8 @@ Every maintained doc appears here. A doc missing from this list fails CI.
 
 - [`documentation.md`](conventions/documentation.md) — where a paragraph goes, and how to
   write it. Governs the prose in `docs/`
+- {{[`issues.md`](conventions/issues.md) — classifying an issue: type, area label, priority,
+  and the commands that set them}}
 - {{[`name.md`](conventions/name.md) — governs {{what}}}}
 
 ### `journal/`
@@ -96,7 +98,7 @@ Templates: [`solutions/README.md`](journal/solutions/README.md),
 | What | Where | Why |
 | --- | --- | --- |
 | {{Prompt text / generated code / secrets}} | {{path}} | {{why docs only point at it}} |
-| Unbuilt work | The issue tracker, `gh issue list --label backlog --limit 200` | No copy in this tree — `gh` reads the tracker directly |
+| Unbuilt work | The issue tracker, {{`gh issue list --label backlog --limit 200` / `gh issue list --limit 200`, classified per [`conventions/issues.md`](conventions/issues.md)}} | No copy in this tree — `gh` reads the tracker directly |
 | {{An external docs mirror}} | {{where}} | Owned outside this repo |
 | {{An autonomous sub-project's docs}} | {{path}} | Its own conventions; these rules do not apply |
 

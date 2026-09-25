@@ -901,6 +901,7 @@ TEMPLATES = Path(__file__).resolve().parent.parent / "references" / "templates"
 TEMPLATE_DEST = {
     "docs-readme.md": "README.md",
     "conventions-documentation.md": "conventions/documentation.md",
+    "conventions-issues.md": "conventions/issues.md",
     "solutions-readme.md": "journal/solutions/README.md",
     "decisions-readme.md": "journal/decisions/README.md",
 }
@@ -931,7 +932,8 @@ def test_the_shipped_templates_pass_the_gate(tree: Tree) -> None:
     written = tree.docs / "README.md"
     written.write_text(
         written.read_text(encoding="utf-8")
-        + "\n- [conventions/documentation.md](conventions/documentation.md)\n",
+        + "\n- [conventions/documentation.md](conventions/documentation.md)\n"
+        + "- [conventions/issues.md](conventions/issues.md)\n",
         encoding="utf-8",
     )
     failures, _ = tree.run()

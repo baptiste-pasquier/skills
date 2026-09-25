@@ -1,6 +1,6 @@
 ---
 name: docs-taxonomy
-description: Restructure a project's docs/ into a MECE, enforced taxonomy - Diátaxis quadrants plus an append-only journal - so humans and coding agents both have exactly one place to put each paragraph. Use when docs/ has drifted (agents appending paragraphs every PR, nothing ever pruned, retrospectives interleaved with explanation), when setting up docs/ on a new project, when asked to make documentation agent-readable or stop doc sprawl, or when asked where a doc belongs. Ships a diagnosis procedure, file templates, and a CI gate.
+description: Restructure a project's docs/ into a MECE, enforced taxonomy - Diátaxis quadrants plus an append-only journal - so humans and coding agents both have exactly one place to put each paragraph. Use when docs/ has drifted (agents appending paragraphs every PR, nothing ever pruned, retrospectives interleaved with explanation), when setting up docs/ on a new project, when asked to make documentation agent-readable or stop doc sprawl, when asked where a doc belongs, or when asked to set up an issue convention (issue types, area labels, priority). Ships a diagnosis procedure, file templates, and a CI gate.
 ---
 
 # docs-taxonomy
@@ -21,6 +21,7 @@ already failed.
 | New project, or `docs/` is 1-2 files | **Greenfield**, below. Create almost nothing. |
 | "Where does this paragraph go?" | [The routing rule](#the-routing-rule). Answer, do not restructure. |
 | A plugin writes its own folders under `docs/` (superpowers, compound-engineering) | [Artifact-writing plugins](#artifact-writing-plugins). One redirect, no gate change. |
+| Classify issues by type, area and priority, or drop the `backlog` label | `references/issues.md`. Works on a repo that already has the taxonomy. |
 | A gate is misfiring | `references/pitfalls.md` |
 
 ## The design, in one screen
@@ -108,11 +109,15 @@ is near 1:1 and no lesson is duplicated, **the docs are fine** — say so and st
 
 ### 2. Decide with the owner
 
-Three questions have no default. Ask them (see `references/decisions.md` for the trade-offs):
+Four questions have no default. Ask them (see `references/decisions.md` for the trade-offs):
 
 1. **Language** — one language for all docs, or a stated boundary?
 2. **Scope** — `docs/` only, or also co-located `README.md`s and sub-projects?
 3. **Existing plans/specs** — delete, or move to `journal/` marked shipped?
+4. **Issues** — one `backlog` label, or a convention classifying every issue by type,
+   area and priority? Either way the tracker is the only home for unbuilt work, read with
+   `gh` — never a copy under `docs/`. `references/issues.md` has the procedure, and the
+   fallback on labels when the organisation has no issue types or `Priority` field.
 
 ### 3. Move, in this order
 
@@ -332,12 +337,12 @@ be able to follow the format.
 | Path | Use |
 | --- | --- |
 | `references/diagnose.md` | The measurement commands. Run these first, always. |
-| `references/decisions.md` | The three questions to ask the owner, with trade-offs. |
+| `references/decisions.md` | The four questions to ask the owner, with trade-offs. |
 | `references/pitfalls.md` | **Read before building the gate.** Mistakes with real cost. |
-| `references/issues.md` | Where unbuilt work lives: the tracker, never a copy under `docs/`. |
+| `references/issues.md` | Where unbuilt work lives, and the optional issue convention: type, area, priority. |
 | `references/versioning.md` | The `.docs-taxonomy/manifest.yml` this skill writes on install, and how to diff against it later. |
 | `references/templates/README.md` | Index of the templates, and where each one lands. |
-| `references/templates/` | `docs-readme.md`, `conventions-documentation.md`, `solutions-readme.md`, `decisions-readme.md`, `agents-section.md`, `frontmatter.md` |
+| `references/templates/` | `docs-readme.md`, `conventions-documentation.md`, `conventions-issues.md`, `solutions-readme.md`, `decisions-readme.md`, `agents-section.md`, `frontmatter.md` |
 | `scripts/check_docs.py` | The gate. Copy in, edit the CONFIGURATION block only. |
 | `scripts/test_check_docs.py` | Its tests: 110 cases, every rule in the failing direction. |
 

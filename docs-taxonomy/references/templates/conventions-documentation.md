@@ -79,12 +79,19 @@ reads journal entries too. A plan names its spec as `../specs/<file>.md`.
 No TODO section, no "future work", no "not yet implemented" list anywhere in `docs/`, and
 **link the issue** rather than describing the missing work.
 
+{{PICK ONE — see the skill's references/issues.md. With the `backlog` label:
+
 Unbuilt work lives in the issue tracker and nowhere else:
 
 ```bash
 gh issue list --label backlog --limit 200    # what is known, wanted, and not built
 gh issue create --label backlog              # add an item
 ```
+
+With the issue convention:
+
+Unbuilt work lives in the issue tracker and nowhere else — every open issue is unbuilt
+work. How to open, classify and read one is in [`issues.md`](issues.md#commands).}}
 
 There is deliberately no copy of the tracker under `docs/`: `gh` reads it directly, so a
 copy only adds something to keep in sync.

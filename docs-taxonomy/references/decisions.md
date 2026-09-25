@@ -1,4 +1,4 @@
-# The three questions to ask the owner
+# The four questions to ask the owner
 
 These have no sensible default. Guessing wrong means redoing the content work, so ask
 before moving anything — during the diagnosis, not after.
@@ -50,6 +50,20 @@ broken links.
 without redirecting `superpowers:brainstorming` and the next session recreates the folder —
 where the gate now fails it, in a PR whose author did nothing wrong. The skill's
 *Artifact-writing plugins* section has the redirect for each mechanism.
+
+## 4. Issues
+
+The tracker holds unbuilt work either way, with no copy under `docs/`. What you are asking
+is how much structure an issue carries.
+
+| Option | Cost | Suits |
+| --- | --- | --- |
+| **One `backlog` label** | None. `gh issue list --label backlog` is the whole convention | A small backlog one person triages |
+| **Type, area and priority** | A rulebook in `conventions/issues.md`, an ADR, and classifying every open issue once | A backlog of dozens, or agents that must pick the next item and find the code for it |
+
+Either way, `gh` reads the tracker directly. With the second option, check which variant the
+organisation supports rather than asking — `references/issues.md` has the call and the
+fallback on labels.
 
 ---
 
