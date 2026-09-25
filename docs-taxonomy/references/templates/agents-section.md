@@ -81,9 +81,10 @@ it — see that rule for what stays.
   opened and read per [`docs/conventions/issues.md`](docs/conventions/issues.md#commands)}}.
   **Link the issue** rather than describing the missing work. The gate fails on a section
   *headed* `TODO`, `Backlog`, `Future work`, `Roadmap` or `Open questions`; a single
-  sentence asserting unbuilt work gets past it, so link instead of writing the sentence. A `TODO` comment in a source file is fine, and a doc
-  may point at one; a *list* of unbuilt work in prose is not. `docs/journal/` is exempt, so a
-  plan's own `Open Questions` section stays where the plugin wrote it.
+  sentence asserting unbuilt work gets past it, so link instead of writing the sentence. A
+  `TODO` comment in a source file is fine, and a doc may point at one; a *list* of unbuilt
+  work in prose is not. `docs/journal/` is exempt, so a plan's own `Open Questions` section
+  stays where the plugin wrote it.
 - **Every maintained doc carries frontmatter** with `title`, `type` (equal to its folder
   name), `audience`, `status`, `stale_after`, and appears in `docs/README.md`. A key present
   but empty counts as missing. A passed `stale_after` **warns** rather than fails, so a

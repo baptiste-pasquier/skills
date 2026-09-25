@@ -127,7 +127,8 @@ nothing when it holds:
 ```bash
 gh issue list --limit 200 --search "no:field.priority" --json number --jq '.[].number'
 gh issue list --limit 200 --json number,issueType,labels --jq '.[]
-  | select(.issueType == null or ([.labels[].name | select(startswith("area:"))] | length) == 0)
+  | [.labels[].name | select(startswith("area:") and . != "area:security")] as $areas
+  | select(.issueType == null or ($areas | length) < 1 or ($areas | length) > 2)
   | .number'
 ```
 
@@ -149,8 +150,8 @@ gh issue list --limit 200 --label area:{{name}}
 gh issue edit 123 --remove-label type:bug --add-label type:task   # change the type
 ```
 
-Audit — prints the open issues without exactly one type, exactly one priority and at least
-one area, and prints nothing when the convention holds:
+Audit — prints the open issues without exactly one type, exactly one priority, and one or
+two areas besides `area:security`; prints nothing when the convention holds:
 
 ```bash
 gh issue list --limit 200 --json number,labels --jq '.[]
@@ -158,6 +159,7 @@ gh issue list --limit 200 --json number,labels --jq '.[]
   | select(
       ([$names[] | select(startswith("type:"))] | length) != 1
       or ([$names[] | select(startswith("priority:"))] | length) != 1
-      or ([$names[] | select(startswith("area:"))] | length) == 0)
+      or ([$names[] | select(startswith("area:") and . != "area:security")] | length
+          | . < 1 or . > 2))
   | .number'
 ```

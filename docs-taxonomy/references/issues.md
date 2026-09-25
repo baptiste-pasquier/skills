@@ -118,9 +118,10 @@ In one PR:
    the organisation's mechanisms, everything as labels and a GitHub Project (its fields
    live outside the issue); with labels only, a GitHub Project, and the organisation's
    mechanisms as the move to make if the repo joins an organisation.
-3. Every mention of the `backlog` label replaced — `grep -rn "backlog" AGENTS.md CLAUDE.md
-   docs .claude`, then read each hit: a command wraps across lines, and the compass row says
-   "an issue labelled `backlog`". A command becomes a link to
+3. Every mention of the `backlog` label replaced — `grep -rni "backlog" AGENTS.md CLAUDE.md
+   docs .claude .github`, then read each hit: a command wraps across lines, the compass row
+   says "an issue labelled `backlog`", and an issue form or a workflow under `.github/` may
+   apply the label. An issue form applies the new labels instead, or none. A command becomes a link to
    `docs/conventions/issues.md#commands`, where the commands are written once; the compass
    row becomes "an issue, classified per `docs/conventions/issues.md`".
 4. The agents file gets the rule below, in the list of repo-wide conventions — not in the
@@ -139,8 +140,9 @@ A convention the tracker does not follow on day one is not followed afterwards.
 
 1. Create the labels: `gh label create <name> --description "<what it covers>"` for every
    area — and, with labels only, for the three `type:*` and four `priority:*` labels too.
-2. Classify every **open** issue: one type, one or two areas, one priority. An old `bug`
-   label becomes the Bug type, `enhancement` the Feature type. Closed issues are left as
+2. Classify every **open** issue: one type, one or two areas, one priority. Convert the old
+   labels before step 4 deletes them: `bug` becomes the Bug type (with labels only,
+   `type:bug`), `enhancement` the Feature type (`type:feature`). Closed issues are left as
    they are — the audit reads open issues only.
 3. Run the template's audit commands. Empty output means done.
 4. Delete every label that is not one of the convention's kinds — `backlog`, the GitHub
