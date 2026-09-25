@@ -96,7 +96,7 @@ Templates: [`solutions/README.md`](journal/solutions/README.md),
 | What | Where | Why |
 | --- | --- | --- |
 | {{Prompt text / generated code / secrets}} | {{path}} | {{why docs only point at it}} |
-| Unbuilt work | {{[`BACKLOG.md`](BACKLOG.md), mirrored from the issues labelled `backlog` / the issue tracker, `gh issue list --label backlog`}} | {{Refreshed by a GitHub Action; never hand-edited / No mirror in this tree — a copy nobody refreshes automatically is a cache of one command}} |
+| Unbuilt work | The issue tracker, `gh issue list --label backlog --limit 200` | No copy in this tree — `gh` reads the tracker directly |
 | {{An external docs mirror}} | {{where}} | Owned outside this repo |
 | {{An autonomous sub-project's docs}} | {{path}} | Its own conventions; these rules do not apply |
 
@@ -115,8 +115,8 @@ Templates: [`solutions/README.md`](journal/solutions/README.md),
 9. a filename that is not kebab-case, or an ADR not named `NNNN-with-dashes.md`
 10. a `conventions/` file that does not open with a `Scope:` line
 11. a journal entry whose declared category is not the folder it sits in
-12. a loose file at the root of `docs/`, an unexpected file type, or a symlinked folder
-13. {{`BACKLOG.md` with its generated header removed — only if a mirror ships}}
+12. a loose file at the root of `docs/` (a `BACKLOG.md` among them), an unexpected file
+    type, or a symlinked folder
 
 It **warns**, without failing, on three things: incident narration in `explanation/`, a
 maintained doc past {{150}} prose lines (`reference/`: {{250}}), and a `stale_after` date
@@ -127,9 +127,5 @@ warning only asks whether the write-up belongs in a journal entry, linked.
 
 `docs/journal/` is exempt from rules 6, 7 and 8. It is append-only: an entry records what
 was measured, in the words used at the time, and cannot be corrected into compliance later.
-
-{{If a mirror ships, one more rule is enforced outside the checker: a hand edit to
-`BACKLOG.md` that keeps its header is caught at commit time by a pre-commit hook that
-regenerates and compares, not in CI where nothing is staged.}}
 
 {{The review rule below is a checkbox in the PR template, not a check.}}

@@ -16,10 +16,10 @@ because they were written the same day. On that date every unrelated PR goes red
 code change. Fix: make expiry a **warning**, and stagger the dates by folder so reviews
 spread over months.
 
-**A check against external state.** "The committed `BACKLOG.md` must match the issue
-tracker." Issues change asynchronously from commits, so a teammate opening an issue fails
-the next unrelated PR. Fix: gate on a property of the **diff** instead — the generated
-header is present, or the file regenerates identically.
+**A check against external state.** "Every open issue carries a label." Issues change
+asynchronously from commits, so a teammate opening an unlabelled issue fails the next
+unrelated PR. Fix: keep it out of CI — an audit command someone runs on purpose — and gate
+only on properties of the **diff**.
 
 ### A hard size cap is the wrong unit
 
