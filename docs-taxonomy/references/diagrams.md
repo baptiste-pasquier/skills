@@ -37,7 +37,7 @@ Choose the question by asking what readers most often get wrong about the system
 
 | Kind of system | The question | Typical classes |
 | --- | --- | --- |
-| LLM product | Who produces the text the user reads? | `llm` (a model call), `writer` (text a model writes), `det` (deterministic code, fixed text included) |
+| LLM product | Who produces the text the user reads? | `llm_call` (a model call), `llm_text` (text a model writes), `code` (deterministic code, fixed text included) |
 | Service / backend | Who owns this box? | `ours`, `external` (a third-party API), `store` (a database or queue) |
 | Data pipeline | How does this step run? | `batch`, `stream`, `manual` |
 | Evaluation harness | Is this the thing being measured? | `subject` (the system under test), `harness` |
@@ -45,19 +45,19 @@ Choose the question by asking what readers most often get wrong about the system
 The LLM legend, as an example of the shape every legend takes:
 
 ```text
-classDef llm fill:#fde2e1,stroke:#c0392b,color:#000
-classDef writer fill:#fff3cd,stroke:#b8860b,color:#000
-classDef det fill:#e3f2fd,stroke:#1565c0,color:#000
+classDef llm_call fill:#fdecea,stroke:#c62828,color:#000
+classDef llm_text fill:#fff8e1,stroke:#f9a825,color:#000
+classDef code fill:#e8f0fe,stroke:#1a73e8,color:#000
 ```
 
 | Class | Colour | Node is |
 | --- | --- | --- |
-| `llm` | red | an LLM call |
-| `writer` | yellow | text a model writes to the user, a fixed text it copies word for word included |
-| `det` | blue | deterministic code, a fixed text the code appends or sends itself included |
+| `llm_call` | red | an LLM call |
+| `llm_text` | yellow | text a model writes to the user, a fixed text it copies word for word included |
+| `code` | blue | deterministic code, a fixed text the code appends or sends itself included |
 
 State the edge cases in that table, not in each diagram. In the LLM legend, a fixed text the
-model is *told* to copy is still `writer`: the colour says who produces the bytes, however
+model is *told* to copy is still `llm_text`: the colour says who produces the bytes, however
 strictly the prompt asks for them.
 
 Set `color:#000` on every class. Light fills with black text stay readable in a dark theme.
@@ -102,6 +102,60 @@ diagram, usually "one unit of work":
 
 Compare **edges only**, never the layout or the labels. A test that pins the shape fails on
 every honest redraw, and it gets deleted.
+
+A skeleton in Python with pytest. Only `declared_edges()` and `ID_TO_NODE` are
+project-specific:
+
+```python
+import re
+from pathlib import Path
+
+DOC = Path(__file__).resolve().parents[1] / "docs" / "README.md"
+MARKER = "<!-- request-diagram -->"
+#: Diagram id -> the code's name. Ids absent here are not nodes, and are ignored.
+ID_TO_NODE = {"R": "route_request", "A": "authorize", "H": "handle"}
+LEADING_ID = re.compile(r"\s*([A-Za-z][A-Za-z0-9_]*)")
+
+
+def declared_edges() -> set[tuple[str, str]]:
+    """The topology as the code declares it: a graph, a route table, a state machine."""
+    from app.router import GRAPH  # project-specific
+
+    return {(source, target) for source, targets in GRAPH.items() for target in targets}
+
+
+def drawn_edges() -> set[tuple[str, str]]:
+    body = DOC.read_text(encoding="utf-8")
+    start = body.index("```mermaid", body.index(MARKER))
+    block = body[start : body.index("```", start + len("```mermaid"))]
+    edges = set()
+    for line in block.splitlines():
+        if "-->" not in line:
+            continue
+        left, right = line.split("-->", 1)  # `A & B --> C & D` draws four edges
+        for source in map(node_at, left.split("&")):
+            for target in map(node_at, right.split("&")):
+                if source and target and source != target:
+                    edges.add((source, target))
+    return edges
+
+
+def node_at(text: str) -> str | None:
+    hit = LEADING_ID.match(text.split("|")[-1])  # skip an `-->|label|` prefix
+    return ID_TO_NODE.get(hit.group(1)) if hit else None
+
+
+def test_every_declared_edge_is_drawn() -> None:
+    assert not declared_edges() - drawn_edges()
+
+
+def test_no_edge_is_invented() -> None:
+    assert not drawn_edges() - declared_edges()
+
+
+def test_every_node_is_mapped() -> None:
+    assert set(ID_TO_NODE.values()) == {node for edge in declared_edges() for node in edge}
+```
 
 When the topology is not machine-readable, there is no drift test. The diagram is then
 reviewed node by node against the code, as part of the definition of done in

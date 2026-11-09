@@ -24,8 +24,8 @@ the script:
   * CATEGORY_KEY = None               - journal entries declare no category
   * ALLOWLIST = ("docs/legacy/**",)   - a path whose failures become warnings
 
-Three switches are off by default and belong to the skill's reader layer and
-site option (references/reader-layer.md, references/site.md):
+Three more switches are off by default. The first two belong to the skill's
+site option (references/site.md); the third is for generated pages:
 
   * SITE_CONFIG = REPO_ROOT / "zensical.toml" - the site's `nav` is the index
   * LINKS_STAY_IN_TREE = True         - a maintained doc never links out of docs/
@@ -225,7 +225,7 @@ class Problem:
         return f"{tag}  {rel}: {self.message}"
 
 
-def matches(path: Path, patterns: tuple[str, ...]) -> bool:
+def matches_glob(path: Path, patterns: tuple[str, ...]) -> bool:
     """Return whether a path, relative to the repository root, matches a glob."""
     try:
         rel = path.relative_to(REPO_ROOT).as_posix()
@@ -236,7 +236,7 @@ def matches(path: Path, patterns: tuple[str, ...]) -> bool:
 
 def is_allowlisted(path: Path) -> bool:
     """Return whether this path's failures are downgraded to warnings."""
-    return matches(path, ALLOWLIST)
+    return matches_glob(path, ALLOWLIST)
 
 
 def _strip_inline_comment(value: str) -> str:
@@ -520,7 +520,7 @@ def check_filler(path: Path, plain: str) -> list[Problem]:
 def check_size(path: Path, body: str, folder: str) -> list[Problem]:
     """Warn when a doc's prose has grown past its folder's guideline."""
     cap = PROSE_CAP.get(folder, PROSE_CAP_DEFAULT)
-    if cap is None or matches(path, SIZE_EXEMPT):
+    if cap is None or matches_glob(path, SIZE_EXEMPT):
         return []
     if (count := prose_lines(body)) > cap:
         message = f"{count} prose lines, over the {cap} guideline"

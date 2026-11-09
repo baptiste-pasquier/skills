@@ -90,7 +90,7 @@ it — see that rule for what stays.
 - **Every maintained doc carries frontmatter** with `title`, `type` (equal to its folder
   name), `audience`, `status`, `stale_after`, and appears in {{`docs/README.md` / the `nav` of
   `zensical.toml`}}. A key present
-  but empty counts as missing. A passed `stale_after` **warns** rather than fails, so a
+  but empty counts as missing. {{With a site, a `nav` entry with no file fails too.}} A passed `stale_after` **warns** rather than fails, so a
   review date cannot redden an unrelated PR.
 - **Every `docs/conventions/` file opens with a `Scope:` line** naming the artifact it
   governs. The bolded form `**Scope:` passes too.

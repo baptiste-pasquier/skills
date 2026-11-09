@@ -10,7 +10,7 @@ Ask when the docs currently mix languages, or when the product domain is not in 
 | Option | Cost | Suits |
 | --- | --- | --- |
 | **One language, all docs** | Translating whatever is in the other one | Most repos. One rule, gateable. |
-| **English docs, domain terms kept** | None. Needs the exception written down. | A non-English business domain: keep *dossier*, *apport*, *VEFA* in running text, because renaming them makes the docs disagree with the code. |
+| **English docs, domain terms kept** | None. Needs the exception written down. | A non-English business domain: keep the domain's own terms (a regulated product name, a legal status) in running text, because renaming them makes the docs disagree with the code. |
 | **A stated per-folder boundary** | No translation, but the rule is "which folder am I in", which erodes | Genuinely split audiences (business docs vs infra docs) |
 | **No rule** | This is the current state, and it is drift | Nothing |
 
@@ -93,7 +93,8 @@ and note the consequence — a legitimate reference-table addition will be block
 **No empty quadrants.** Create a folder when its first doc exists. `tutorials/` almost never
 exists on day one.
 
-**Mermaid for every diagram.** Do not offer images, draw.io or PlantUML. See `diagrams.md`.
+**Mermaid for every diagram** (`diagrams.md`).
 
 **Zensical when a site is wanted**, unless the project already publishes with another
-generator, in which case keep that one and port `nav_paths()` in the gate.
+generator. Then keep that one, and adapt the copied gate's nav check to its config file as
+a deliberate change to the script, with its tests (`site.md`).

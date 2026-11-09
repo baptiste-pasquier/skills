@@ -158,8 +158,8 @@ passing) matter as much as the true ones.
 | **arc42** | Skip. Twelve mandatory sections invite the empty-section sprawl being fixed. |
 | **llms.txt** | Skip for a repo. Specified for websites, and an agent with Glob/Grep gains nothing. Ship it only if `docs/` is published. |
 | **Zensical** | Adopt when the docs need a site (`site.md`). Reads the same Markdown as GitHub, renders Mermaid, and its `nav` becomes the gate's index (`SITE_CONFIG`). Leave `strict` off, because the gate checks links with the repository's semantics. |
-| **MkDocs + Material** | Skip for a new site: Zensical is its successor, from the same team. Keep it where it already runs, and port `nav_paths()`. |
-| **Mermaid** | Adopt for every diagram (`diagrams.md`). Text, diffable, rendered natively by GitHub, testable against the code. |
-| **Images, draw.io, PlantUML** | Skip. A binary or an exported picture is a copy nobody updates, and the gate fails an image under `docs/`. |
+| **MkDocs + Material** | Skip for a new site: Zensical is its successor, from the same team. Keep it where it already runs; the gate's nav check then needs a deliberate adaptation (`site.md`). |
+| **Mermaid** | Adopt for every diagram. The reasons are in `diagrams.md`. |
+| **Images, draw.io, PlantUML** | Skip. The gate fails an image under `docs/`. |
 | **Vale, markdownlint, lychee** | Fine for hygiene. None can check frontmatter against a folder, which is the core rule. |
 | **A single repo script** | What to actually build. Every rule that matters is repo-specific. |

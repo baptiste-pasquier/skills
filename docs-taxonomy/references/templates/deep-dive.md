@@ -10,9 +10,10 @@ stale_after: {{YYYY-MM-DD}}
 
 > {{One sentence: what this feature is for, in the user's terms.}}
 
-<!-- The template: six sections, in this order, with these names. The first four serve the
-     reader who needs what it does, the last two the reader who changes it. 150 prose lines
-     at most; tables, diagrams and code blocks do not count. -->
+<!-- The template: six sections, in this order, with these names. "At a glance", "How it
+     works" and "What the user sees" serve the reader who needs what it does; "Where it
+     lives" and "How to change it" the reader who changes it; "Go deeper" both. 150 prose
+     lines at most; tables, diagrams and code blocks do not count. -->
 
 ## At a glance
 
@@ -22,8 +23,8 @@ flowchart TD
     decide -->|"case A"| outA["Outcome A"]
     decide -->|"case B"| outB["Outcome B"]
 
-    classDef det fill:#e3f2fd,stroke:#1565c0,color:#000
-    class decide,outA,outB det
+    classDef code fill:#e8f0fe,stroke:#1a73e8,color:#000
+    class decide,outA,outB code
 ```
 
 ## How it works

@@ -1,6 +1,6 @@
 ---
 name: docs-taxonomy
-description: Restructure a project's docs/ into a MECE, enforced taxonomy - Diátaxis quadrants plus an append-only journal - so humans and coding agents both have exactly one place to put each paragraph. Use when docs/ has drifted (agents appending paragraphs every PR, nothing ever pruned, retrospectives interleaved with explanation), when setting up docs/ on a new project, when asked to make documentation agent-readable or stop doc sprawl, when asked where a doc belongs, when humans cannot find or follow how a feature works (overview page, per-feature deep dives, code map, Mermaid diagrams, an optional Zensical site), or when asked to set up an issue convention (issue types, area labels, priority). Ships a diagnosis procedure, file templates, and a CI gate.
+description: Restructure a project's docs/ into a MECE, enforced taxonomy - Diátaxis quadrants plus an append-only journal - so humans and coding agents both have exactly one place to put each paragraph. Use when docs/ has drifted (agents appending paragraphs every PR, nothing ever pruned, retrospectives interleaved with explanation), when setting up docs/ on a new project, when asked to make documentation agent-readable or stop doc sprawl, when asked where a doc belongs, when humans cannot find or follow how a feature works, when drawing a diagram in docs/, when publishing the docs as a site, or when asked to set up an issue convention (issue types, area labels, priority). Ships a diagnosis procedure, file templates, and a CI gate.
 ---
 
 # docs-taxonomy
@@ -198,8 +198,8 @@ Do **not** scaffold four empty folders. Create:
    plugin.
 
 Folders appear when their first doc does. `journal/decisions/` is worth creating early — a
-project makes decisions before it has explanations. The reader layer waits too: add it when
-the third explanation page appears (`references/reader-layer.md`).
+project makes decisions before it has explanations. The reader layer waits too
+(`references/reader-layer.md`, *When to add it*).
 
 5. `.docs-taxonomy/manifest.yml` (see Brownfield step 8, above).
 
@@ -216,7 +216,7 @@ cp "$SKILL_DIR/scripts/test_check_docs.py" tests/unit_tests/scripts/test_check_d
 ```
 
 The test imports the gate either as `scripts.check_docs` or as a sibling file, so both
-layouts work. Run it once from the project root before wiring anything: 121 tests, no
+layouts work. Run it once from the project root before wiring anything: 122 tests, no
 project `docs/` needed — every case builds its own tree.
 
 Adapting means **editing a value in the CONFIGURATION block, never the code below it**.
@@ -382,7 +382,7 @@ be able to follow the format.
 | `references/templates/README.md` | Index of the templates, and where each one lands. |
 | `references/templates/` | `docs-readme.md`, `conventions-documentation.md`, `conventions-issues.md`, `solutions-readme.md`, `decisions-readme.md`, `agents-section.md`, `frontmatter.md`; reader layer: `docs-overview.md`, `deep-dive.md`, `code-map.md`; site: `zensical.toml`, `journal-meta.yml` |
 | `scripts/check_docs.py` | The gate. Copy in, edit the CONFIGURATION block only. |
-| `scripts/test_check_docs.py` | Its tests: 121 cases, every rule in the failing direction. |
+| `scripts/test_check_docs.py` | Its tests: 122 cases, every rule in the failing direction. |
 
 The script here is the canonical copy. Once copied into a project it belongs to that
 project and diverges as its taxonomy does — nothing syncs the two, and nothing should.

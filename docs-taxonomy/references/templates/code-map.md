@@ -20,7 +20,7 @@ layer invariant that applies, where one does.
 
 | Package | What it holds | Rule |
 | --- | --- | --- |
-| `{{src/package/}}` | {{One to three sentences naming the main files and their key symbols: `graph.py` `create_graph` wires the steps.}} | {{Never imports `src/other/`. / No I/O. / —}} |
+| `{{src/package/}}` | {{One to three sentences naming the main files and their key symbols: `router.py` `route_request` dispatches each request.}} | {{Never imports `src/other/`. / No I/O. / —}} |
 
 ## I want to change…
 

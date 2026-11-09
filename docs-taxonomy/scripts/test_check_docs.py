@@ -1099,10 +1099,11 @@ READER_TEMPLATE_DEST = {
 @pytest.mark.skipif(
     not TEMPLATES.is_dir(), reason="the templates ship with the skill, not the project"
 )
-def test_the_reader_layer_templates_pass_the_gate_with_a_site(
-    tree: Tree, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("with_site", [False, True], ids=["no-site", "site"])
+def test_the_reader_layer_templates_pass_the_gate(
+    tree: Tree, monkeypatch: pytest.MonkeyPatch, with_site: bool
 ) -> None:
-    """The reader layer with every site switch on: nav index, confined links."""
+    """The reader layer as shipped: the README list, or every site switch on."""
     for name, target in READER_TEMPLATE_DEST.items():
         source = (TEMPLATES / name).read_text(encoding="utf-8")
         # A deep dive's title is the feature's name: an adopter fills it in.
@@ -1113,8 +1114,16 @@ def test_the_reader_layer_templates_pass_the_gate_with_a_site(
         for target in READER_TEMPLATE_DEST.values()
         if target.split("/")[0] in cd.MAINTAINED
     ]
-    monkeypatch.setattr(cd, "SITE_CONFIG", write_nav(tree, *pages))
-    monkeypatch.setattr(cd, "LINKS_STAY_IN_TREE", True)
+    if with_site:
+        monkeypatch.setattr(cd, "SITE_CONFIG", write_nav(tree, *pages))
+        monkeypatch.setattr(cd, "LINKS_STAY_IN_TREE", True)
+    else:
+        # The "All pages" section, filled in as an adopter does.
+        overview = tree.docs / "README.md"
+        rows = "".join(f"- [{page}]({page})\n" for page in pages)
+        overview.write_text(
+            overview.read_text(encoding="utf-8") + rows, encoding="utf-8"
+        )
     failures, _ = tree.run()
     assert failures == []
 

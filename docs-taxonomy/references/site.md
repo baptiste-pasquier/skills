@@ -7,7 +7,10 @@ linking out of `docs/`.
 
 **Zensical** is the reference choice. It comes from the team behind MkDocs + Material, reads
 the same Markdown, and renders Mermaid through one config line. Any generator with an
-explicit nav works the same way; only `nav_paths()` in the gate needs porting.
+explicit nav works the same way, but the gate reads only `zensical.toml`. Another generator
+means adapting the copied gate's `nav_paths()`: a deliberate change below the CONFIGURATION
+block, with tests, like the multi-tree adaptation below. A YAML nav (`mkdocs.yml`) also
+breaks the gate's stdlib-only rule.
 
 ```mermaid
 flowchart LR

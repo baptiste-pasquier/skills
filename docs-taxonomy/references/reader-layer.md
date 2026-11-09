@@ -6,7 +6,8 @@ places every paragraph correctly can still be unreadable. Pages are written for 
 one is 500 lines long, and nothing links a behaviour to the file that implements it.
 
 The reader layer adds four page shapes inside the existing folders. It adds no folder and
-no gate rule, and the routing rule stays the same.
+no gate rule of its own, and the routing rule stays the same. The site option is what adds
+gate switches (`references/site.md`).
 
 ```mermaid
 flowchart TD
@@ -55,8 +56,8 @@ separate tree.
 The home page is for a reader, not a writer. It holds, in order:
 
 1. **What the product is, in one paragraph**: who uses it, what it does, the one
-   architectural fact a reader must hold (for example, "the code, never the model, writes
-   to the database").
+   architectural fact a reader must hold (for example, "every read is served from the
+   cache, and only a miss reaches the database").
 2. **The legend**, one sentence.
 3. **Three diagrams**: where it runs, the user's journey, one unit of work. They are
    specified in `references/diagrams.md`.
@@ -123,7 +124,7 @@ with two parts:
 
 1. **Packages**: one row per package in the order a request crosses them, giving what it
    holds (one to three sentences naming the main files and symbols) and the layer invariant
-   that applies (`Never imports src/agent/`, `No I/O`).
+   that applies (`Never imports src/web/`, `No I/O`).
 2. **I want to change…**: grouped by theme (fixed texts, prompts, rules, thresholds,
    integrations). The columns are *I want to change…* → *File* → *Symbol or key* →
    *Read* (the deep dive) → *Guarded by* (the test).
@@ -141,8 +142,8 @@ dive, all with the same legend.
 
 ## Citing code
 
-Cite code as a backticked `path` plus its `symbol`, such as `src/agent/graph.py`
-`create_graph`. Never cite a line number, which goes stale on the next edit above it.
+Cite code as a backticked `path` plus its `symbol`, such as `src/app/router.py`
+`route_request`. Never cite a line number, which goes stale on the next edit above it.
 
 | Setup | Form | Why |
 | --- | --- | --- |

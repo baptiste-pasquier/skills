@@ -21,8 +21,8 @@ flowchart TB
     end
     app --> external
 
-    classDef det fill:#e3f2fd,stroke:#1565c0,color:#000
-    class entry,app det
+    classDef code fill:#e8f0fe,stroke:#1a73e8,color:#000
+    class entry,app code
     style external fill:none,stroke:#888
 ```
 
@@ -35,8 +35,8 @@ flowchart TD
     stepA --> done(["Outcome"])
     stepB --> done
 
-    classDef det fill:#e3f2fd,stroke:#1565c0,color:#000
-    class stepA,stepB det
+    classDef code fill:#e8f0fe,stroke:#1a73e8,color:#000
+    class stepA,stepB code
 ```
 
 ## One {{request / turn / job}}
@@ -49,8 +49,8 @@ flowchart TD
     first --> second["second_step"]
     second --> output([Output])
 
-    classDef det fill:#e3f2fd,stroke:#1565c0,color:#000
-    class first,second det
+    classDef code fill:#e8f0fe,stroke:#1a73e8,color:#000
+    class first,second code
 ```
 
 ## Features
@@ -71,16 +71,16 @@ flowchart TD
 **New here?** {{Read the deep dives in this order: 1 [first](explanation/first.md) →
 2 [second](explanation/second.md) → 3 [third](explanation/third.md).}}
 
-{{WITHOUT A SITE ONLY. With a site, the `nav` of `zensical.toml` is the index: delete this
-section.
-
 ## All pages
+
+{{WITHOUT A SITE ONLY. With a site, the `nav` of `zensical.toml` is the index: delete this
+section.}}
 
 Every maintained doc is listed here, and a doc missing from the list fails CI.
 
-- `explanation/`: [feature](explanation/feature.md)
-- `how-to/`: [do a thing](how-to/do-a-thing.md)
+- `explanation/`: {{[feature](explanation/feature.md)}}
+- `how-to/`: {{[do a thing](how-to/do-a-thing.md)}}
 - `reference/`: [code map](reference/code-map.md)
-- `conventions/`: [documentation](conventions/documentation.md)}}
+- `conventions/`: [documentation](conventions/documentation.md)
 
 Writing a page? The rules are in [`conventions/documentation.md`](conventions/documentation.md).

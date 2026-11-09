@@ -21,9 +21,10 @@ sentence.}}
 
 The routing table lives in [`../README.md`](../README.md) and is not repeated here.
 
-With the reader layer, `README.md` is the readers' overview, so the routing table and the
-folder table move here — copy them from the skill's `templates/docs-readme.md`, sections
-"Two axes" and "Where does this paragraph go?".}}
+With the reader layer, `README.md` is the readers' overview, so the routing table, the
+folder table and the list of what CI enforces move here — copy them from the skill's
+`templates/docs-readme.md`, sections "Two axes", "Where does this paragraph go?" and
+"What CI enforces".}}
 
 Run the compass on **the paragraph**, not on the file you happen to have open. That is what
 stops a paragraph landing in a doc merely because that doc was already open.
@@ -162,16 +163,16 @@ fails CI as an unexpected file type.
 lines at the end of each diagram:
 
 ```text
-classDef llm fill:#fde2e1,stroke:#c0392b,color:#000
-classDef writer fill:#fff3cd,stroke:#b8860b,color:#000
-classDef det fill:#e3f2fd,stroke:#1565c0,color:#000
+classDef llm_call fill:#fdecea,stroke:#c62828,color:#000
+classDef llm_text fill:#fff8e1,stroke:#f9a825,color:#000
+classDef code fill:#e8f0fe,stroke:#1a73e8,color:#000
 ```
 
 | Class | Colour | Node is |
 | --- | --- | --- |
-| `llm` | red | an LLM call |
-| `writer` | yellow | text a model writes to the user, a fixed text it copies word for word included |
-| `det` | blue | deterministic code, a fixed text the code appends or sends itself included |}}
+| `llm_call` | red | an LLM call |
+| `llm_text` | yellow | text a model writes to the user, a fixed text it copies word for word included |
+| `code` | blue | deterministic code, a fixed text the code appends or sends itself included |}}
 
 {{The diagram in `explanation/{{page}}.md` that follows `<!-- {{name}}-diagram -->` is checked
 against the code by `{{tests/path/test_diagram.py}}`: an edge drawn or omitted fails it.}}
@@ -198,7 +199,8 @@ prose lines at most**; CI warns past that:
 ## Go deeper            ← links to reference/, how-to/, ADRs
 ```
 
-The first four sections serve the first reader, the last two the second. Keep the section
+"At a glance", "How it works" and "What the user sees" serve the first reader; "Where it
+lives" and "How to change it" serve the second; "Go deeper" serves both. Keep the section
 names and their order.
 
 A deep dive replaces the pages it absorbs and deletes them in the same commit. It links
