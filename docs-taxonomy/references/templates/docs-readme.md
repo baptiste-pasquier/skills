@@ -109,7 +109,8 @@ Templates: [`solutions/README.md`](journal/solutions/README.md),
 1. a file whose `type` does not match its folder, or a file in an unknown folder
 2. missing or invalid frontmatter — a key present but empty counts as missing
 3. a relative link, or a `#fragment`, that does not resolve
-4. a maintained doc missing from the index above
+4. a maintained doc missing from the index above {{/ with a site: from the `nav` of
+   `zensical.toml`, or a `nav` entry with no file}}
 5. {{prose in the wrong language, outside a code fence}}
 6. past-tense incident narration in `reference/`, `conventions/` or `how-to/`
 7. a banned filler phrase
@@ -118,7 +119,9 @@ Templates: [`solutions/README.md`](journal/solutions/README.md),
 10. a `conventions/` file that does not open with a `Scope:` line
 11. a journal entry whose declared category is not the folder it sits in
 12. a loose file at the root of `docs/` (a `BACKLOG.md` among them), an unexpected file
-    type, or a symlinked folder
+    type (an image of a diagram among them: diagrams are Mermaid), or a symlinked folder
+{{13. with a site: a relative link from a maintained doc that leaves `docs/` — cite the
+    path and its symbol in backticks}}
 
 It **warns**, without failing, on three things: incident narration in `explanation/`, a
 maintained doc past {{150}} prose lines (`reference/`: {{250}}), and a `stale_after` date

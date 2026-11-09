@@ -1,4 +1,4 @@
-# The four questions to ask the owner
+# The five questions to ask the owner
 
 These have no sensible default. Guessing wrong means redoing the content work, so ask
 before moving anything — during the diagnosis, not after.
@@ -10,7 +10,7 @@ Ask when the docs currently mix languages, or when the product domain is not in 
 | Option | Cost | Suits |
 | --- | --- | --- |
 | **One language, all docs** | Translating whatever is in the other one | Most repos. One rule, gateable. |
-| **English docs, domain terms kept** | None. Needs the exception written down. | A non-English business domain: keep *dossier*, *apport*, *VEFA* in running text, because renaming them makes the docs disagree with the code. |
+| **English docs, domain terms kept** | None. Needs the exception written down. | A non-English business domain: keep the domain's own terms (a regulated product name, a legal status) in running text, because renaming them makes the docs disagree with the code. |
 | **A stated per-folder boundary** | No translation, but the rule is "which folder am I in", which erodes | Genuinely split audiences (business docs vs infra docs) |
 | **No rule** | This is the current state, and it is drift | Nothing |
 
@@ -65,9 +65,24 @@ Either way, `gh` reads the tracker directly. With the second option, check which
 organisation supports rather than asking — `references/issues.md` has the call and the
 fallback on labels.
 
+## 5. Readers and a site
+
+Ask who reads the docs **without changing the code**. The answer decides whether
+`explanation/` stays a set of topic pages or becomes one deep dive per feature.
+
+| Option | Cost | Suits |
+| --- | --- | --- |
+| **Writers only** | None. The taxonomy alone | Developers and agents, who grep |
+| **Reader layer** (`reader-layer.md`) | A rewrite of `explanation/`, an overview, a code map, a findability set to collect | A PO/PM, data scientists, support, or new hires who read to understand |
+| **Reader layer + a site** (`site.md`) | A `zensical.toml`, a build in CI, a Pages setup, and no links out of `docs/` | The same readers, without a checkout, who need search |
+
+Ask for the readers by role, and ask for three of their real questions on the spot. Those
+questions start the findability set. Order matters: taxonomy first, reader layer second,
+site last. A site over agent-shaped pages makes the same problem searchable.
+
 ---
 
-# Two decisions to make yourself
+# Three decisions to make yourself
 
 Do not put these to the owner — the answer is the same every time.
 
@@ -77,3 +92,9 @@ and note the consequence — a legitimate reference-table addition will be block
 
 **No empty quadrants.** Create a folder when its first doc exists. `tutorials/` almost never
 exists on day one.
+
+**Mermaid for every diagram** (`diagrams.md`).
+
+**Zensical when a site is wanted**, unless the project already publishes with another
+generator. Then keep that one, and adapt the copied gate's nav check to its config file as
+a deliberate change to the script, with its tests (`site.md`).

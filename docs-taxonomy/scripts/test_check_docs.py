@@ -809,6 +809,115 @@ def test_the_allowlist_does_not_cover_the_rest_of_the_tree(
 
 
 # --------------------------------------------------------------------------
+# The reader layer and the site option. All three switches are off by default,
+# so each is tested on and off.
+
+
+def write_nav(tree: Tree, *pages: str) -> Path:
+    """Write a `zensical.toml` whose nav lists `pages`, and point the gate at it."""
+    entries = ", ".join(f'"{page}"' for page in pages)
+    config = tree.root / "zensical.toml"
+    config.write_text(
+        f'[project]\nsite_name = "Docs"\nnav = [\n  "README.md",\n'
+        f'  {{ "Pages" = [{entries}] }},\n  "https://example.com",\n]\n',
+        encoding="utf-8",
+    )
+    return config
+
+
+MAINTAINED_PAGES = (
+    "reference/a-contract.md",
+    "how-to/do-a-thing.md",
+    "explanation/why-it-is.md",
+    "conventions/writing.md",
+)
+
+
+def test_with_a_site_the_nav_is_the_index(
+    valid: Tree, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The README stops being a list: an overview page lists nothing and passes."""
+    monkeypatch.setattr(cd, "SITE_CONFIG", write_nav(valid, *MAINTAINED_PAGES))
+    valid.write("README.md", "# At a glance\n\nWhat the product does.\n")
+    assert valid.run()[0] == []
+
+
+def test_a_doc_missing_from_the_nav_fails(
+    valid: Tree, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A page the site never links is a page nobody finds."""
+    monkeypatch.setattr(cd, "SITE_CONFIG", write_nav(valid, *MAINTAINED_PAGES[1:]))
+    assert "not in the nav of zensical.toml" in valid.failures()
+
+
+def test_a_nav_entry_with_no_file_fails(
+    valid: Tree, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other direction: a renamed page leaves a dead entry behind."""
+    config = write_nav(valid, *MAINTAINED_PAGES, "explanation/renamed.md")
+    monkeypatch.setattr(cd, "SITE_CONFIG", config)
+    assert "nav entry has no file -> explanation/renamed.md" in valid.failures()
+
+
+def test_a_missing_site_config_fails(
+    valid: Tree, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """SITE_CONFIG names a file, so its absence is a misconfiguration."""
+    monkeypatch.setattr(cd, "SITE_CONFIG", valid.root / "zensical.toml")
+    assert "zensical.toml is missing" in valid.failures()
+
+
+def link_to_source(tree: Tree) -> None:
+    """Link a maintained doc to a source file outside `docs/`."""
+    (tree.root / "src").mkdir()
+    (tree.root / "src" / "app.py").write_text("x = 1\n", encoding="utf-8")
+    tree.write(
+        "reference/a-contract.md",
+        frontmatter("reference") + "\nSee [the app](../../src/app.py).\n",
+    )
+
+
+def test_a_link_out_of_the_tree_passes_without_a_site(valid: Tree) -> None:
+    """On the repository host the link resolves, and the gate checks it."""
+    link_to_source(valid)
+    assert valid.run()[0] == []
+
+
+def test_a_link_out_of_the_tree_fails_when_confined(
+    valid: Tree, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The site publishes `docs/` alone, so the same link is dead there."""
+    monkeypatch.setattr(cd, "LINKS_STAY_IN_TREE", True)
+    link_to_source(valid)
+    assert "links outside docs/ - cite the path in backticks" in valid.failures()
+
+
+def test_a_journal_entry_may_link_out_when_confined(
+    valid: Tree, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An entry is a record, kept out of the nav: confinement does not reach it."""
+    monkeypatch.setattr(cd, "LINKS_STAY_IN_TREE", True)
+    (valid.root / "src").mkdir()
+    (valid.root / "src" / "app.py").write_text("x = 1\n", encoding="utf-8")
+    valid.write(
+        "journal/decisions/0002-a-link.md", "# A link\n\n[app](../../../src/app.py)\n"
+    )
+    assert valid.run()[0] == []
+
+
+def test_a_size_exempt_page_does_not_warn(
+    valid: Tree, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A generated page whose warning would fire on every run, forever."""
+    long_body = "".join(f"Row {index} carries a fact.\n\n" for index in range(400))
+    valid.write("reference/a-contract.md", frontmatter("reference") + long_body)
+    monkeypatch.setattr(cd, "SIZE_EXEMPT", ("docs/reference/a-contract.md",))
+    failures, warnings = valid.run()
+    assert failures == []
+    assert not any("prose lines" in message for message in warnings)
+
+
+# --------------------------------------------------------------------------
 # One hostile tree, carrying every shape at once. Delete a rule and the
 # parametrised test below names the rule that stopped firing.
 
@@ -950,6 +1059,16 @@ def test_an_unresolved_template_placeholder_fails(valid: Tree) -> None:
     assert "unresolved template placeholder" in valid.failures()
 
 
+def test_a_mermaid_hexagon_is_not_a_placeholder(valid: Tree) -> None:
+    """`id{{"label"}}` is Mermaid's decision node; inside its fence it is code."""
+    valid.write(
+        "explanation/why-it-is.md",
+        frontmatter("explanation")
+        + '\n# Why it is\n\n```mermaid\nflowchart TD\n    route{{"route_request"}} --> done\n```\n',
+    )
+    assert valid.run()[0] == []
+
+
 def test_an_unresolved_placeholder_in_the_journal_fails(valid: Tree) -> None:
     """Two of the templates land in `journal/`, so the rule reaches there too."""
     valid.write(
@@ -965,3 +1084,56 @@ def test_a_placeholder_inside_a_code_fence_passes(valid: Tree) -> None:
         frontmatter("reference") + "\n```yaml\nname: {{ .Release.Name }}\n```\n",
     )
     assert valid.run()[0] == []
+
+
+READER_TEMPLATE_DEST = {
+    "docs-overview.md": "README.md",
+    "deep-dive.md": "explanation/a-feature.md",
+    "code-map.md": "reference/code-map.md",
+    "conventions-documentation.md": "conventions/documentation.md",
+    "solutions-readme.md": "journal/solutions/README.md",
+    "decisions-readme.md": "journal/decisions/README.md",
+}
+
+
+@pytest.mark.skipif(
+    not TEMPLATES.is_dir(), reason="the templates ship with the skill, not the project"
+)
+@pytest.mark.parametrize("with_site", [False, True], ids=["no-site", "site"])
+def test_the_reader_layer_templates_pass_the_gate(
+    tree: Tree, monkeypatch: pytest.MonkeyPatch, with_site: bool
+) -> None:
+    """The reader layer as shipped: the README list, or every site switch on."""
+    for name, target in READER_TEMPLATE_DEST.items():
+        source = (TEMPLATES / name).read_text(encoding="utf-8")
+        # A deep dive's title is the feature's name: an adopter fills it in.
+        source = source.replace("title: {{Feature}}", "title: A feature")
+        tree.write(target, strip_placeholders(source))
+    pages = [
+        target
+        for target in READER_TEMPLATE_DEST.values()
+        if target.split("/")[0] in cd.MAINTAINED
+    ]
+    if with_site:
+        monkeypatch.setattr(cd, "SITE_CONFIG", write_nav(tree, *pages))
+        monkeypatch.setattr(cd, "LINKS_STAY_IN_TREE", True)
+    else:
+        # The "All pages" section, filled in as an adopter does.
+        overview = tree.docs / "README.md"
+        rows = "".join(f"- [{page}]({page})\n" for page in pages)
+        overview.write_text(
+            overview.read_text(encoding="utf-8") + rows, encoding="utf-8"
+        )
+    failures, _ = tree.run()
+    assert failures == []
+
+
+@pytest.mark.skipif(
+    not TEMPLATES.is_dir(), reason="the templates ship with the skill, not the project"
+)
+def test_the_site_config_template_parses() -> None:
+    """A TOML error in the template would surface only at the adopter's build."""
+    import tomllib
+
+    config = tomllib.loads((TEMPLATES / "zensical.toml").read_text(encoding="utf-8"))
+    assert config["project"]["nav"]

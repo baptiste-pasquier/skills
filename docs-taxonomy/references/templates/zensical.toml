@@ -1,0 +1,58 @@
+# Goes to the repository root. The `nav` below is the index of the docs: the gate
+# (`SITE_CONFIG`) fails a maintained doc missing from it and an entry with no file.
+# See the skill's references/site.md.
+[project]
+site_name = "{{Project}}"
+site_description = "{{One line}}"
+docs_dir = "docs"
+site_dir = "site"
+repo_url = "{{https://github.com/org/repo}}"
+
+# Grouped by the reader's question, not by the folder. `journal/` stays out:
+# it is built, so links to ADRs resolve, but never navigated or searched.
+nav = [
+  { "Overview" = [
+      "README.md",
+      "reference/code-map.md",
+  ] },
+  { "Features" = [
+      "explanation/{{feature}}.md",
+  ] },
+  { "How-to" = [
+      "how-to/{{task}}.md",
+  ] },
+  { "Reference" = [
+      "reference/{{contract}}.md",
+  ] },
+  { "Conventions" = [
+      "conventions/documentation.md",
+  ] },
+]
+
+[project.theme]
+features = [
+  "navigation.tabs",
+  "navigation.indexes",
+  "search.highlight",
+]
+
+# Reads `docs/journal/.meta.yml`, which keeps the journal out of search.
+[project.plugins.meta]
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+md_in_html = {}
+tables = {}
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+
+[project.markdown_extensions.toc]
+permalink = true
+
+# Fragment ids as GitHub derives them, so a `#fragment` the gate checks also
+# resolves on the site.
+[project.markdown_extensions.toc.slugify]
+object = "pymdownx.slugs.slugify"
+kwds = { case = "lower" }

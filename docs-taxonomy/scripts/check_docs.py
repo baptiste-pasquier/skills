@@ -24,6 +24,13 @@ the script:
   * CATEGORY_KEY = None               - journal entries declare no category
   * ALLOWLIST = ("docs/legacy/**",)   - a path whose failures become warnings
 
+Three more switches are off by default. The first two belong to the skill's
+site option (references/site.md); the third is for generated pages:
+
+  * SITE_CONFIG = REPO_ROOT / "zensical.toml" - the site's `nav` is the index
+  * LINKS_STAY_IN_TREE = True         - a maintained doc never links out of docs/
+  * SIZE_EXEMPT = ("docs/reference/catalog.md",) - a generated page, no size warning
+
 Most projects change three things: the language markers, the PROSE_CAP numbers,
 and the FILLER openers their own conventions doc names.
 
@@ -96,6 +103,21 @@ VALID_STATUS = {"draft", "stable", "deprecated"}
 #: drop the size warning entirely.
 PROSE_CAP = {"reference": 250}
 PROSE_CAP_DEFAULT = 150
+#: Pages exempt from the size warning, as glob patterns relative to the
+#: repository root. For a page a script generates - a catalog, a table dump -
+#: whose size nobody edits down: its warning would fire on every run, and a
+#: warning that always fires stops being read. Every other check still applies.
+SIZE_EXEMPT: tuple[str, ...] = ()
+
+#: The site configuration whose `nav` is the index, replacing the list in
+#: `docs/README.md`. A `zensical.toml`, its `nav` paths relative to `docs/`.
+#: None means no site: `docs/README.md` lists every maintained doc.
+SITE_CONFIG: Path | None = None
+#: Whether a relative link in a maintained doc must resolve inside `docs/`. Set
+#: it with a site: the site publishes `docs/`, not the repository, so a link to
+#: a source file builds into a dead link. Cite the path in backticks instead.
+#: `journal/` is exempt - an entry is a record and stays out of the nav.
+LINKS_STAY_IN_TREE = False
 
 #: Past-tense incident narration. Belongs in `journal/solutions/`, never in a
 #: maintained doc - see `docs/conventions/documentation.md`.
@@ -203,15 +225,18 @@ class Problem:
         return f"{tag}  {rel}: {self.message}"
 
 
-def is_allowlisted(path: Path) -> bool:
-    """Return whether this path's failures are downgraded to warnings."""
-    if not ALLOWLIST:
-        return False
+def matches_glob(path: Path, patterns: tuple[str, ...]) -> bool:
+    """Return whether a path, relative to the repository root, matches a glob."""
     try:
         rel = path.relative_to(REPO_ROOT).as_posix()
     except ValueError:
         rel = path.as_posix()
-    return any(fnmatch.fnmatch(rel, pattern) for pattern in ALLOWLIST)
+    return any(fnmatch.fnmatch(rel, pattern) for pattern in patterns)
+
+
+def is_allowlisted(path: Path) -> bool:
+    """Return whether this path's failures are downgraded to warnings."""
+    return matches_glob(path, ALLOWLIST)
 
 
 def _strip_inline_comment(value: str) -> str:
@@ -495,7 +520,7 @@ def check_filler(path: Path, plain: str) -> list[Problem]:
 def check_size(path: Path, body: str, folder: str) -> list[Problem]:
     """Warn when a doc's prose has grown past its folder's guideline."""
     cap = PROSE_CAP.get(folder, PROSE_CAP_DEFAULT)
-    if cap is None:
+    if cap is None or matches_glob(path, SIZE_EXEMPT):
         return []
     if (count := prose_lines(body)) > cap:
         message = f"{count} prose lines, over the {cap} guideline"
@@ -587,12 +612,15 @@ def anchors_of(path: Path) -> set[str]:
 LINK = re.compile(r"\]\(\s*(?:<([^>]*)>|([^)\s]*))(?:\s+[\"'][^\"']*[\"'])?\s*\)")
 
 
-def check_links(path: Path) -> list[Problem]:
+def check_links(path: Path, *, confined: bool = False) -> list[Problem]:
     """Check that every relative link, and every fragment, resolves on disk.
 
     Every link shape is checked, not only the `.md` ones: a folder link, a link
     carrying a title, a percent-encoded space and an uppercase extension are all
     links that can rot.
+
+    With `confined`, a target resolving outside `docs/` fails as well: the site
+    publishes `docs/` alone, so the link would be dead there.
     """
     problems: list[Problem] = []
     text = path.read_text(encoding="utf-8")
@@ -604,7 +632,10 @@ def check_links(path: Path) -> list[Problem]:
         if not target and not fragment:
             continue
         resolved = (path.parent / target) if target else path
-        if not resolved.exists():
+        if confined and not resolved.resolve().is_relative_to(DOCS.resolve()):
+            message = f"links outside {DOCS_DIRNAME}/ - cite the path in backticks"
+            problems.append(Problem(path, f"{message} -> {target}"))
+        elif not resolved.exists():
             problems.append(Problem(path, f"broken link -> {target}"))
         elif (
             fragment
@@ -613,6 +644,43 @@ def check_links(path: Path) -> list[Problem]:
             and fragment not in anchors_of(resolved)
         ):
             problems.append(Problem(path, f"broken anchor -> {target}#{fragment}"))
+    return problems
+
+
+def _flatten_nav(node: object) -> set[str]:
+    """Collect the page paths of one nav node, skipping external URLs."""
+    if isinstance(node, str):
+        return set() if "://" in node else {node}
+    if isinstance(node, list):
+        return set().union(*(_flatten_nav(item) for item in node))
+    if isinstance(node, dict):
+        return set().union(*(_flatten_nav(item) for item in node.values()))
+    return set()
+
+
+def nav_paths(config: Path) -> set[str]:
+    """Return every page path of a `zensical.toml` nav, relative to `docs/`."""
+    import tomllib  # stdlib from Python 3.11; imported here, used by sites only
+
+    data = tomllib.loads(config.read_text(encoding="utf-8"))
+    return _flatten_nav(data.get("project", {}).get("nav", []))
+
+
+def check_nav(config: Path, maintained: list[Path]) -> list[Problem]:
+    """Check the nav both ways: every maintained doc in it, every entry a file."""
+    if not config.is_file():
+        return [Problem(config, f"{config.name} is missing - SITE_CONFIG names it")]
+    nav = nav_paths(config)
+    problems = [
+        Problem(path, f"not in the nav of {config.name}")
+        for path in maintained
+        if path.relative_to(DOCS).as_posix() not in nav
+    ]
+    problems.extend(
+        Problem(config, f"nav entry has no file -> {entry}")
+        for entry in sorted(nav)
+        if not (DOCS / entry).is_file()
+    )
     return problems
 
 
@@ -631,7 +699,7 @@ def check_maintained_doc(path: Path, folder: str) -> list[Problem]:
     problems: list[Problem] = []
     if not KEBAB.match(path.name) and path.name != INDEX_NAME:
         problems.append(Problem(path, "filename must be kebab-case"))
-    problems.extend(check_links(path))
+    problems.extend(check_links(path, confined=LINKS_STAY_IN_TREE))
 
     text = path.read_text(encoding="utf-8")
     meta, body = split_frontmatter(text)
@@ -663,7 +731,7 @@ def classify(path: Path, rel: Path) -> tuple[list[Problem], bool]:
     if folder not in MAINTAINED:
         return [Problem(path, f"unknown folder `{folder}/`")], False
     if suffix in DATA_SUFFIXES:
-        problems = check_links(path)
+        problems = check_links(path, confined=LINKS_STAY_IN_TREE)
         if not KEBAB.match(path.name):
             problems.append(Problem(path, "filename must be kebab-case"))
         return problems, False
@@ -712,8 +780,12 @@ def check_docs() -> list[Problem]:
     if not index.exists():
         problems.append(Problem(DOCS, f"{DOCS_DIRNAME}/{INDEX_NAME} is missing"))
     else:
-        problems.extend(check_index(index.read_text(encoding="utf-8"), maintained))
-        problems.extend(check_links(index))
+        if SITE_CONFIG is None:
+            text = index.read_text(encoding="utf-8")
+            problems.extend(check_index(text, maintained))
+        problems.extend(check_links(index, confined=LINKS_STAY_IN_TREE))
+    if SITE_CONFIG is not None:
+        problems.extend(check_nav(SITE_CONFIG, maintained))
     return [
         Problem(problem.path, problem.message, warning=True)
         if not problem.warning and is_allowlisted(problem.path)

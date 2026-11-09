@@ -58,6 +58,15 @@ Same for language detection. Do **not** flag single function words — `plus`, `
 occur in English. **Score per line** and require ~4 distinct markers. One hit proves nothing;
 four are conclusive.
 
+### A warning that always fires stops being read
+
+A generated page (a catalog, a table dump) sits over the prose cap for good, and its warning
+prints on every run. Within a month nobody reads the warnings, including the one that
+matters. List such a page in `SIZE_EXEMPT`. Every other check still applies to it.
+
+The same holds for any warning: if it cannot be fixed by an edit, it does not belong in the
+output.
+
 ### Compute line numbers on the file, not the stripped body
 
 If you strip fenced blocks before scanning, your line numbers point at the wrong lines and
@@ -148,6 +157,9 @@ passing) matter as much as the true ones.
 | **MADR 4.0.0** | Adopt for `journal/decisions/`. `NNNN-title-with-dashes.md`. |
 | **arc42** | Skip. Twelve mandatory sections invite the empty-section sprawl being fixed. |
 | **llms.txt** | Skip for a repo. Specified for websites, and an agent with Glob/Grep gains nothing. Ship it only if `docs/` is published. |
-| **mkdocs `--strict`** | Its `validation.nav.omitted_files` orphan gate is the one genuinely useful off-the-shelf check, and it is five lines against `docs/README.md`. Skip the site build unless you already publish. |
+| **Zensical** | Adopt when the docs need a site (`site.md`). Reads the same Markdown as GitHub, renders Mermaid, and its `nav` becomes the gate's index (`SITE_CONFIG`). Leave `strict` off, because the gate checks links with the repository's semantics. |
+| **MkDocs + Material** | Skip for a new site: Zensical is its successor, from the same team. Keep it where it already runs; the gate's nav check then needs a deliberate adaptation (`site.md`). |
+| **Mermaid** | Adopt for every diagram. The reasons are in `diagrams.md`. |
+| **Images, draw.io, PlantUML** | Skip. The gate fails an image under `docs/`. |
 | **Vale, markdownlint, lychee** | Fine for hygiene. None can check frontmatter against a folder, which is the core rule. |
 | **A single repo script** | What to actually build. Every rule that matters is repo-specific. |
