@@ -1,0 +1,5 @@
+# Goes to docs/journal/.meta.yml. Front matter applied to every journal entry by
+# the `meta` plugin of zensical.toml: the journal is never cited as truth, so it
+# stays out of search. The gate skips hidden files, so this one is not a doc.
+search:
+  exclude: true

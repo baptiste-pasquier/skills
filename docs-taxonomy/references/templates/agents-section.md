@@ -6,8 +6,10 @@
 
 ## Documentation
 
-`docs/` has one topology and one routing rule. **Read [`docs/README.md`](docs/README.md)
-before creating or substantially extending anything under `docs/`.** Full rules:
+`docs/` has one topology and one routing rule. **Read {{[`docs/README.md`](docs/README.md) /
+with the reader layer: [`docs/conventions/documentation.md`](docs/conventions/documentation.md)
+— `docs/README.md` is the readers' overview, not the rulebook}} before creating or
+substantially extending anything under `docs/`.** Full rules:
 [`docs/conventions/documentation.md`](docs/conventions/documentation.md).
 
 ### Where a paragraph goes
@@ -86,7 +88,8 @@ it — see that rule for what stays.
   work in prose is not. `docs/journal/` is exempt, so a plan's own `Open Questions` section
   stays where the plugin wrote it.
 - **Every maintained doc carries frontmatter** with `title`, `type` (equal to its folder
-  name), `audience`, `status`, `stale_after`, and appears in `docs/README.md`. A key present
+  name), `audience`, `status`, `stale_after`, and appears in {{`docs/README.md` / the `nav` of
+  `zensical.toml`}}. A key present
   but empty counts as missing. A passed `stale_after` **warns** rather than fails, so a
   review date cannot redden an unrelated PR.
 - **Every `docs/conventions/` file opens with a `Scope:` line** naming the artifact it
@@ -95,6 +98,11 @@ it — see that rule for what stays.
   links into it; the gate names them.
 - **Filenames are kebab-case**, and a `docs/journal/decisions/` entry is
   `NNNN-with-dashes.md`.
+- **Every diagram is a ```` ```mermaid ```` block**: an image file under `docs/` fails as
+  an unexpected file type.
+- {{With a site: **a maintained doc links nothing outside `docs/`**, because the site
+  publishes `docs/` alone. Cite a source file as a backticked `path` plus its `symbol`.
+  `docs/journal/` entries may link out.}}
 - {{**{{Language}}**, everywhere in `docs/` including the journal. Quoted prompt text and
   user-facing labels stay {{other language}}, inside backticks or a code fence.}}
 
@@ -107,6 +115,12 @@ it — see that rule for what stays.
   `docs/journal/solutions/`** for an entry in the relevant category.
 - **Record a lasting architectural choice as an ADR** under `docs/journal/decisions/`. An
   accepted decision is never edited — a change adds a new entry marking the old superseded.
+- **Every diagram carries the legend** from `docs/conventions/documentation.md`: the same
+  classes, the same colours, pasted at the end of the block.
+- {{With the reader layer: **a feature's explanation is its deep dive**, on the six-section
+  template in `docs/conventions/documentation.md`. Rewrite the deep dive rather than adding a
+  page next to it. Cite code as `path` plus `symbol`, never a line number. A change that moves
+  a symbol a page cites updates that page and its row in `docs/reference/code-map.md`.}}
 - **Documentation prose** — this governs the prose in `docs/`, not {{prompt text}}: lead
   with the conclusion; one claim per paragraph; no filler or hedging; prefer a table to
   enumerative prose. A single-claim paragraph is individually replaceable, which is what
@@ -121,6 +135,8 @@ it — see that rule for what stays.
 | --- | --- |
 | {{a tool / an endpoint / a schema}} | {{`docs/reference/<file>.md`}} |
 | {{conversation flow / core behaviour}} | {{`docs/explanation/<file>.md`}} |
+| {{With the reader layer: a feature's behaviour, or the file behind it}} | {{its deep dive in `docs/explanation/`, and its row in `docs/reference/code-map.md`}} |
+| {{the topology a checked diagram draws}} | {{that diagram — its drift test fails otherwise}} |
 | {{deployment, CI/CD}} | {{`docs/how-to/<file>.md`}} |
 | user-facing behaviour, setup, local workflow | `README.md` |
 | {{an `area:*` label, or the issue types or priorities in use}} | {{`docs/conventions/issues.md`}} |

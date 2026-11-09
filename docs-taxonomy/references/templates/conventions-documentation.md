@@ -8,7 +8,7 @@ stale_after: {{YYYY-MM-DD}}
 
 # Documentation conventions
 
-**Scope: the prose in `docs/`. {{For MAX's prompt text, see [`prompting.md`](prompting.md).}}**
+**Scope: the prose in `docs/`. {{For the product's prompt text, see [`prompting.md`](prompting.md).}}**
 
 {{Those rule sets rhyme in places — both say to cut the filler — and they stay apart because
 the reasons differ. A prompt is priced per token and subject to attention effects; a doc is
@@ -17,9 +17,16 @@ sentence.}}
 
 ## Placement
 
-The routing table lives in [`../README.md`](../README.md) and is not repeated here. Run the
-compass on **the paragraph**, not on the file you happen to have open. That is what stops a
-paragraph landing in a doc merely because that doc was already open.
+{{PICK ONE — without the reader layer:
+
+The routing table lives in [`../README.md`](../README.md) and is not repeated here.
+
+With the reader layer, `README.md` is the readers' overview, so the routing table and the
+folder table move here — copy them from the skill's `templates/docs-readme.md`, sections
+"Two axes" and "Where does this paragraph go?".}}
+
+Run the compass on **the paragraph**, not on the file you happen to have open. That is what
+stops a paragraph landing in a doc merely because that doc was already open.
 
 ### Never narrate an incident in a maintained doc
 
@@ -144,6 +151,64 @@ hedging: state it as a fact about what is known.
 
 Three or more cases in one sentence become a table. {{`reference/{{doc}}.md`'s parameter
 tables are the pattern to copy.}}
+
+## Diagrams
+
+**Every diagram is a Mermaid block**, never an image. It diffs, it renders on {{GitHub}}
+{{and on the site}}, and a test can check it against the code. An image file under `docs/`
+fails CI as an unexpected file type.
+
+{{The legend — one question, answered by colour, the same on every diagram. Paste these
+lines at the end of each diagram:
+
+```text
+classDef llm fill:#fde2e1,stroke:#c0392b,color:#000
+classDef writer fill:#fff3cd,stroke:#b8860b,color:#000
+classDef det fill:#e3f2fd,stroke:#1565c0,color:#000
+```
+
+| Class | Colour | Node is |
+| --- | --- | --- |
+| `llm` | red | an LLM call |
+| `writer` | yellow | text a model writes to the user, a fixed text it copies word for word included |
+| `det` | blue | deterministic code, a fixed text the code appends or sends itself included |}}
+
+{{The diagram in `explanation/{{page}}.md` that follows `<!-- {{name}}-diagram -->` is checked
+against the code by `{{tests/path/test_diagram.py}}`: an edge drawn or omitted fails it.}}
+
+{{READER LAYER ONLY — delete this section without it.
+
+## Deep dives
+
+**Readers:** {{the PO/PM, who needs what a feature does and what the user sees}}; {{the
+developer, who needs to change it}}.
+
+Every deep dive (an `explanation/` page on one feature) follows one template, in **150
+prose lines at most**; CI warns past that:
+
+```markdown
+# <Feature>
+> One sentence: what it is for.
+
+## At a glance          ← 1–3 Mermaid diagrams, with the legend
+## How it works         ← short bullets, one claim each, no paragraph over 4 lines
+## What the user sees   ← 2–3 real outputs, copied from a run, in a fence
+## Where it lives       ← table: behaviour → file → symbol
+## How to change it     ← table: "I want to…" → file → test or command
+## Go deeper            ← links to reference/, how-to/, ADRs
+```
+
+The first four sections serve the first reader, the last two the second. Keep the section
+names and their order.
+
+A deep dive replaces the pages it absorbs and deletes them in the same commit. It links
+`reference/` and `how-to/` pages instead of restating them.
+
+Cite code as a backticked `path` plus its `symbol`, never a line number. {{With a site: never
+as a link either — the site publishes `docs/` alone, and CI fails a link that leaves it.}}
+
+`reference/code-map.md` maps "I want to change…" to a file and a symbol. A PR that moves a
+symbol it names updates its row.}}
 
 ## Language
 

@@ -1,6 +1,6 @@
 ---
 name: docs-taxonomy
-description: Restructure a project's docs/ into a MECE, enforced taxonomy - Diátaxis quadrants plus an append-only journal - so humans and coding agents both have exactly one place to put each paragraph. Use when docs/ has drifted (agents appending paragraphs every PR, nothing ever pruned, retrospectives interleaved with explanation), when setting up docs/ on a new project, when asked to make documentation agent-readable or stop doc sprawl, when asked where a doc belongs, or when asked to set up an issue convention (issue types, area labels, priority). Ships a diagnosis procedure, file templates, and a CI gate.
+description: Restructure a project's docs/ into a MECE, enforced taxonomy - Diátaxis quadrants plus an append-only journal - so humans and coding agents both have exactly one place to put each paragraph. Use when docs/ has drifted (agents appending paragraphs every PR, nothing ever pruned, retrospectives interleaved with explanation), when setting up docs/ on a new project, when asked to make documentation agent-readable or stop doc sprawl, when asked where a doc belongs, when humans cannot find or follow how a feature works (overview page, per-feature deep dives, code map, Mermaid diagrams, an optional Zensical site), or when asked to set up an issue convention (issue types, area labels, priority). Ships a diagnosis procedure, file templates, and a CI gate.
 ---
 
 # docs-taxonomy
@@ -21,6 +21,9 @@ already failed.
 | New project, or `docs/` is 1-2 files | **Greenfield**, below. Create almost nothing. |
 | "Where does this paragraph go?" | [The routing rule](#the-routing-rule). Answer, do not restructure. |
 | A plugin writes its own folders under `docs/` (superpowers, compound-engineering) | [Artifact-writing plugins](#artifact-writing-plugins). One redirect, no gate change. |
+| Readers who do not write the code (PO/PM, a new hire) cannot find or follow a feature | `references/reader-layer.md`. Works on a repo that already has the taxonomy. |
+| Drawing a diagram, or setting the diagram rules | `references/diagrams.md`. Mermaid, always. |
+| Publishing the docs as a searchable site | `references/site.md`. Zensical, optional, after the reader layer. |
 | Classify issues by type, area and priority, or drop the `backlog` label | `references/issues.md`. Works on a repo that already has the taxonomy. |
 | A gate is misfiring | `references/pitfalls.md` |
 
@@ -61,6 +64,30 @@ content by what a *reader of the product* needs; conventions target a *writer of
 **Create no empty quadrants.** Diátaxis says so and it matters: an empty folder is an
 invitation to fill it with the wrong thing. Most repos have no tutorial — do not make
 `tutorials/` until one exists.
+
+**Every diagram is Mermaid**: text that diffs, renders on GitHub and on a site, and can be
+tested against the code. `references/diagrams.md` has the legend and the drift test.
+
+**Three layers, and only the first is mandatory.** The taxonomy serves the *writer*: one
+place per paragraph. The reader layer serves the *reader*, and it lives inside the same
+folders. A site publishes what the reader layer wrote.
+
+```mermaid
+flowchart TB
+    subgraph writer["1 · Writer layer, always: this file"]
+        direction LR
+        rule["Routing rule<br/>one place per paragraph"] --> folders["explanation · how-to · reference<br/>conventions · journal"]
+        gate["check_docs.py<br/>pre-commit + CI"] --> folders
+    end
+    subgraph reader["2 · Reader layer, when people read without coding"]
+        direction LR
+        overview["README.md<br/>overview, 3 diagrams"] --> deep["explanation/<br/>a deep dive per feature"]
+        overview --> map["reference/code-map.md"]
+    end
+    site["3 · Site, optional<br/>Zensical, nav = index"]
+    reader -->|"lives inside"| writer
+    site -->|publishes| reader
+```
 
 ## The routing rule
 
@@ -109,7 +136,7 @@ is near 1:1 and no lesson is duplicated, **the docs are fine** — say so and st
 
 ### 2. Decide with the owner
 
-Four questions have no default. Ask them (see `references/decisions.md` for the trade-offs):
+Five questions have no default. Ask them (see `references/decisions.md` for the trade-offs):
 
 1. **Language** — one language for all docs, or a stated boundary?
 2. **Scope** — `docs/` only, or also co-located `README.md`s and sub-projects?
@@ -118,6 +145,8 @@ Four questions have no default. Ask them (see `references/decisions.md` for the 
    area and priority? Either way the tracker is the only home for unbuilt work, read with
    `gh` — never a copy under `docs/`. `references/issues.md` has the procedure, and the
    fallback on labels when the organisation has no issue types or `Priority` field.
+5. **Readers** — do people read the docs without changing the code, and do they need a
+   site? Yes adds the reader layer after the move, as its own PRs; a site comes after that.
 
 ### 3. Move, in this order
 
@@ -169,7 +198,8 @@ Do **not** scaffold four empty folders. Create:
    plugin.
 
 Folders appear when their first doc does. `journal/decisions/` is worth creating early — a
-project makes decisions before it has explanations.
+project makes decisions before it has explanations. The reader layer waits too: add it when
+the third explanation page appears (`references/reader-layer.md`).
 
 5. `.docs-taxonomy/manifest.yml` (see Brownfield step 8, above).
 
@@ -186,7 +216,7 @@ cp "$SKILL_DIR/scripts/test_check_docs.py" tests/unit_tests/scripts/test_check_d
 ```
 
 The test imports the gate either as `scripts.check_docs` or as a sibling file, so both
-layouts work. Run it once from the project root before wiring anything: 110 tests, no
+layouts work. Run it once from the project root before wiring anything: 121 tests, no
 project `docs/` needed — every case builds its own tree.
 
 Adapting means **editing a value in the CONFIGURATION block, never the code below it**.
@@ -200,6 +230,11 @@ Every switch has an "off" value the test suite exercises:
 | `SCOPE_FOLDER = None` | no `Scope:` line required |
 | `CATEGORY_KEY = None` | journal entries with no category field |
 | `ALLOWLIST = ("docs/legacy/**",)` | those paths' failures become warnings |
+| `SIZE_EXEMPT = ("docs/reference/catalog.md",)` | a generated page with no size warning |
+| `SITE_CONFIG = REPO_ROOT / "zensical.toml"` | the site's `nav` is the index, checked both ways |
+| `LINKS_STAY_IN_TREE = True` | a maintained doc that links out of `docs/` fails |
+
+The last two go together, and only with a site (`references/site.md`).
 
 The pre-commit hook, with the four fields that are not guessable:
 
@@ -225,7 +260,7 @@ every maintained doc, not the two that happen to be staged.
 | Incident narration in `reference/`, `conventions/`, `how-to/` | Targets the observed failure mode directly. A warning in `explanation/`, which may narrate. |
 | Missing or invalid frontmatter | |
 | A relative link that does not resolve | Catches renames and phantom files. |
-| A maintained doc missing from the index | The orphan-file gate. |
+| A maintained doc missing from the index | The orphan-file gate. The index is the README's list, or a site's `nav`. |
 | A file in an unknown folder, or a bad filename | |
 | Language, if a language rule was chosen | Stops the rule eroding. |
 
@@ -337,14 +372,17 @@ be able to follow the format.
 | Path | Use |
 | --- | --- |
 | `references/diagnose.md` | The measurement commands. Run these first, always. |
-| `references/decisions.md` | The four questions to ask the owner, with trade-offs. |
+| `references/decisions.md` | The five questions to ask the owner, with trade-offs. |
 | `references/pitfalls.md` | **Read before building the gate.** Mistakes with real cost. |
 | `references/issues.md` | Where unbuilt work lives, and the optional issue convention: type, area, priority. |
+| `references/reader-layer.md` | The overview, the deep-dive template, the code map, and the definition of done. |
+| `references/diagrams.md` | Mermaid only: the legend, the three diagrams, the drift test. |
+| `references/site.md` | The optional Zensical site: nav as index, journal out of search, CI. |
 | `references/versioning.md` | The `.docs-taxonomy/manifest.yml` this skill writes on install, and how to diff against it later. |
 | `references/templates/README.md` | Index of the templates, and where each one lands. |
-| `references/templates/` | `docs-readme.md`, `conventions-documentation.md`, `conventions-issues.md`, `solutions-readme.md`, `decisions-readme.md`, `agents-section.md`, `frontmatter.md` |
+| `references/templates/` | `docs-readme.md`, `conventions-documentation.md`, `conventions-issues.md`, `solutions-readme.md`, `decisions-readme.md`, `agents-section.md`, `frontmatter.md`; reader layer: `docs-overview.md`, `deep-dive.md`, `code-map.md`; site: `zensical.toml`, `journal-meta.yml` |
 | `scripts/check_docs.py` | The gate. Copy in, edit the CONFIGURATION block only. |
-| `scripts/test_check_docs.py` | Its tests: 110 cases, every rule in the failing direction. |
+| `scripts/test_check_docs.py` | Its tests: 121 cases, every rule in the failing direction. |
 
 The script here is the canonical copy. Once copied into a project it belongs to that
 project and diverges as its taxonomy does — nothing syncs the two, and nothing should.

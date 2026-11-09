@@ -12,7 +12,13 @@ inherited section nobody meant is how the next drift starts.
 | `decisions-readme.md` | `docs/journal/decisions/README.md` |
 | `agents-section.md` | the `## Documentation` section of `AGENTS.md` / `CLAUDE.md` |
 | `frontmatter.md` | the schema, for reference while writing the others |
+| `docs-overview.md` | `docs/README.md`, **instead of** `docs-readme.md`, with the reader layer (`references/reader-layer.md`) |
+| `deep-dive.md` | `docs/explanation/<feature>.md`, one per feature |
+| `code-map.md` | `docs/reference/code-map.md` |
+| `zensical.toml` | the repository root, with a site (`references/site.md`) |
+| `journal-meta.yml` | `docs/journal/.meta.yml`, with a site |
 
 `docs/README.md` and the agents section both carry the compass table. That duplication is
 deliberate: the agent must not need a second file read to place a paragraph. Keep them in
-sync — a diff between them is a bug.
+sync — a diff between them is a bug. With the reader layer, the README's copy moves to
+`conventions/documentation.md`, and the same sync rule applies there.
